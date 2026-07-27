@@ -92,17 +92,32 @@
       });
       return;
     }
-    // word / slide：选中文本靠 GetSelectedText；slide 再补页码标签。
+    if (et === "slide") {
+      // 幻灯片：选中文本走 GetSelectedText，页码走 callCommand(GetCurSlideIndex)。
+      // 本版 docserver 的 Builder API 无法读"选中的图片/形状"（GetSelectedShapes 等皆 noMethod），
+      // 所以对图片/形状这类无文本选中，退化为「只带页码、文本空」——点图片时输入框至少更新到"第N页"。
+      // 签名用「页码\x01文本」：切页 / 换选区都触发。ponytail: 引擎日后开放选中形状 API 再补形状描述。
+      window.Asc.plugin.executeMethod("GetSelectedText", [], function (text) {
+        text = text || "";
+        window.Asc.plugin.callCommand(function () {
+          try { return "第" + (Api.GetPresentation().GetCurSlideIndex() + 1) + "页"; } catch (e) {}
+          return "";
+        }, false, false, function (page) {
+          page = page || "";
+          var sig = page + "\u0001" + text;
+          if (sig === lastSel) return;
+          lastSel = sig;
+          postSel(text, page);
+        });
+      });
+      return;
+    }
+    // word：选中文本靠 GetSelectedText。
     window.Asc.plugin.executeMethod("GetSelectedText", [], function (text) {
       text = text || "";
       if (text === lastSel) return;          // 无变化不上报（含连续空）
       lastSel = text;
-      if (!text) { postSel("", ""); return; }
-      if (et !== "slide") { postSel(text, ""); return; }
-      window.Asc.plugin.callCommand(function () {
-        try { return "第" + (Api.GetPresentation().GetCurrentSlideIndex() + 1) + "页"; } catch (e) {}
-        return "";
-      }, false, false, function (page) { postSel(text, page || ""); });
+      postSel(text, "");
     });
   }
 

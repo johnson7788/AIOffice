@@ -713,11 +713,17 @@ export default function App({
     lastSelSigRef.current = '';  // 换文件时清签名，避免跨文件残留
     const isOfficeFile = !!openFile && /\.(docx?|xlsx?|pptx?|pdf|odt|ods|odp|rtf|csv|txt)$/i.test(openFile.name);
     if (!isOfficeFile) return;
+    // 当前文件对应的编辑器类型，用来挡掉后端里残留的「别的编辑器」选区（后端只存最新一条、按 user 全局，
+    // 切文件后旧选区还在；word 不上报页码，ppt 的"第N页"会赖着不走 → 按类型过滤）。pdf 类型不定，不过滤。
+    const expectType = /\.(xlsx?|ods|csv)$/i.test(openFile!.name) ? 'cell'
+      : /\.(pptx?|odp)$/i.test(openFile!.name) ? 'slide'
+      : /\.(docx?|odt|rtf|txt)$/i.test(openFile!.name) ? 'word' : '';
     const timer = setInterval(async () => {
       if (isStreaming) return;
       try {
         const r = await fetch(`/office/selection?user_id=${encodeURIComponent(userId)}`);
         const sel = await r.json();
+        if (expectType && sel?.editor_type && sel.editor_type !== expectType) return;  // 别的编辑器的残留选区
         const text = (sel?.text || '').trim();
         const page = sel?.page || '';
         if (!text && !page) return;  // 无文本也无位置（如未选任何东西）：跳过
