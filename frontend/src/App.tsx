@@ -707,6 +707,8 @@ export default function App({
   // 这里轮询取来预填输入框，用户补上"要怎么改"即可。只在输入框空 / 仍是上次自动填充时覆盖，绝不打断手打。
   const lastSelSigRef = useRef('');
   const lastAutoFillRef = useRef('');
+  const inputValRef = useRef('');  // 镜像 input，供轮询回调判断用户是否手打过（避免在 setState updater 里读旧值）
+  useEffect(() => { inputValRef.current = input; }, [input]);
   useEffect(() => {
     lastSelSigRef.current = '';  // 换文件时清签名，避免跨文件残留
     const isOfficeFile = !!openFile && /\.(docx?|xlsx?|pptx?|pdf|odt|ods|odp|rtf|csv|txt)$/i.test(openFile.name);
@@ -725,10 +727,14 @@ export default function App({
         const loc = page ? ` · ${page}` : '';
         const body = text ? `\n「${text}」\n` : '\n';  // 空单元格只带地址、无内容行
         const prefix = `已选中【${openFile!.name}】${loc}：${body}\n请补充要如何修改：`;
-        setInput((cur) => {
-          if (cur === '' || cur === lastAutoFillRef.current) { lastAutoFillRef.current = prefix; return prefix; }
-          return cur;
-        });
+        // 只在输入框空 / 仍是上次自动填充值（用户没手打过）时覆盖；判断放在 updater 之外，
+        // 否则 StrictMode 双调 updater 会因中途改了 ref 而在第二次判定失败，导致只有首次生效。
+        const cur = inputValRef.current;
+        if (cur === '' || cur === lastAutoFillRef.current) {
+          lastAutoFillRef.current = prefix;
+          inputValRef.current = prefix;
+          setInput(prefix);
+        }
       } catch { /* 后端不可达 / 未开编辑器：静默 */ }
     }, 1000);
     return () => clearInterval(timer);
