@@ -39,6 +39,12 @@ echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}  清理上一代残留的孤儿沙箱容器"
 docker rm -f $(docker ps -aq --filter "name=sandbox-") 2>/dev/null || true
 
+# 启动 ONLYOFFICE DocumentServer（compose 容器，在线编辑 doc/xls/ppt/pdf 依赖它；
+# restart:unless-stopped 会长期后台跑，这里 up -d 幂等——已在跑则跳过）。
+echo -e "${YELLOW}启动 ONLYOFFICE DocumentServer (端口 8081)...${NC}"
+(cd "$PROJECT_DIR" && docker compose up -d documentserver) 2>/dev/null \
+    || echo -e "${YELLOW}  documentserver 启动失败（docker 未运行？在线编辑将不可用）${NC}"
+
 # 启动后端
 echo -e "${YELLOW}启动后端 (端口 8585)...${NC}"
 cd "$PROJECT_DIR/backend"
