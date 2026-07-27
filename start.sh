@@ -32,7 +32,7 @@ cleanup() {
 trap cleanup SIGINT SIGTERM
 
 echo -e "${GREEN}========================================${NC}"
-echo -e "${GREEN}  启动科研助手${NC}"
+echo -e "${GREEN}  启动办公助手${NC}"
 echo -e "${GREEN}========================================${NC}"
 
 # 清理上一代残留的孤儿沙箱容器（内存态 pool 重启后无法接管，起新的前先清）
