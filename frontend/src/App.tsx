@@ -703,6 +703,35 @@ export default function App({
   }, [extUserId]);
   const [style, setStyle] = useState<string>('');  // 选中的预设模版风格，空=不指定
 
+  // 选区反向桥：编辑器插件把用户在 office 文档里选中的文本+页码上报到后端（office_ops.set_selection），
+  // 这里轮询取来预填输入框，用户补上"要怎么改"即可。只在输入框空 / 仍是上次自动填充时覆盖，绝不打断手打。
+  const lastSelSigRef = useRef('');
+  const lastAutoFillRef = useRef('');
+  useEffect(() => {
+    lastSelSigRef.current = '';  // 换文件时清签名，避免跨文件残留
+    const isOfficeFile = !!openFile && /\.(docx?|xlsx?|pptx?|pdf|odt|ods|odp|rtf|csv|txt)$/i.test(openFile.name);
+    if (!isOfficeFile) return;
+    const timer = setInterval(async () => {
+      if (isStreaming) return;
+      try {
+        const r = await fetch(`/office/selection?user_id=${encodeURIComponent(userId)}`);
+        const sel = await r.json();
+        const text = (sel?.text || '').trim();
+        if (!text) return;
+        const sig = `${text}@@${sel.page || ''}`;
+        if (sig === lastSelSigRef.current) return;  // 同一选区只预填一次
+        lastSelSigRef.current = sig;
+        const loc = sel.page ? ` · ${sel.page}` : '';
+        const prefix = `已选中【${openFile!.name}】${loc}：\n「${text}」\n\n请补充要如何修改：`;
+        setInput((cur) => {
+          if (cur === '' || cur === lastAutoFillRef.current) { lastAutoFillRef.current = prefix; return prefix; }
+          return cur;
+        });
+      } catch { /* 后端不可达 / 未开编辑器：静默 */ }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [openFile, userId, isStreaming]);
+
   // 流式中间状态
   const [liveSteps, setLiveSteps] = useState<ToolStep[]>([]);
   const [liveThoughts, setLiveThoughts] = useState<ThoughtItem[]>([]);

@@ -55,6 +55,47 @@
     }, false, false, function () { console.log("[ai-bridge] callCommand done"); });
   }
 
+  // 反向桥：把用户当前选区（文本 + 位置标签）上报后端，助手侧栏轮询取来预填聊天输入框。
+  var SEL_BACKEND = "http://localhost:8585/office/selection";
+  var SEL_POLL_MS = 800;
+  var lastSel = null;
+
+  function editorType() {
+    var info = window.Asc.plugin.info || {};
+    return info.editorType || "";
+  }
+
+  function postSel(text, page) {
+    fetch(SEL_BACKEND, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: userId(), text: text, page: page, editor_type: editorType() }),
+    }).catch(function () { /* 后端不可达时静默 */ });
+  }
+
+  function reportSelection() {
+    window.Asc.plugin.executeMethod("GetSelectedText", [], function (text) {
+      text = text || "";
+      if (text === lastSel) return;          // 无变化不上报（含连续空）
+      lastSel = text;
+      if (!text) { postSel("", ""); return; }
+      // 有选区：取位置标签（ppt=第N页 / xlsx=单元格地址 / word 留空），再上报。
+      // ponytail: 位置标签靠 callCommand 返回值，个别引擎版本可能取不到 → 退化成空标签，不影响文本上报。
+      window.Asc.scope = window.Asc.scope || {};
+      window.Asc.scope.et = editorType();
+      window.Asc.plugin.callCommand(function () {
+        try {
+          var et = Asc.scope.et;
+          if (et === "slide") return "第" + (Api.GetPresentation().GetCurrentSlideIndex() + 1) + "页";
+          if (et === "cell") return Api.GetActiveSheet().GetActiveCell().GetAddress(false, false, "xlA1");
+        } catch (e) {}
+        return "";
+      }, false, false, function (page) {
+        postSel(text, page || "");
+      });
+    });
+  }
+
   function poll() {
     fetch(BACKEND + "?user_id=" + encodeURIComponent(userId()))
       .then(function (r) { return r.json(); })
@@ -67,6 +108,7 @@
 
   window.Asc.plugin.init = function () {
     setInterval(poll, POLL_MS);
+    setInterval(reportSelection, SEL_POLL_MS);
   };
 
   window.Asc.plugin.button = function () {};

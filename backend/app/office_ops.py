@@ -54,6 +54,22 @@ def drain_ops(user_id: str) -> list[dict]:
     return _PENDING.pop(user_id, [])
 
 
+# 反向桥：编辑器插件把用户当前选区上报到此，助手侧栏轮询取来预填聊天输入框。
+# 只存"最新一份"（选区是当前态、非队列），按 user_id 覆盖。
+# ponytail: 进程内 dict，与 _PENDING 同理；多 worker 再换 redis。
+_SELECTION: dict[str, dict] = {}
+
+
+def set_selection(user_id: str, sel: dict) -> None:
+    """插件上报用户当前选区（覆盖旧值）。"""
+    _SELECTION[user_id] = sel
+
+
+def get_selection(user_id: str) -> dict:
+    """取用户当前选区（助手侧栏轮询）；无则空 dict。"""
+    return _SELECTION.get(user_id) or {}
+
+
 def parse_office_op(raw: str) -> dict:
     """把 LLM 原始输出解析并校验成一个合法 op；非法则抛 ValueError。"""
     s = (raw or "").strip()

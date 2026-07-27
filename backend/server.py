@@ -828,6 +828,28 @@ async def office_pending_poll(user_id: str = "default_user"):
     return JSONResponse({"ops": drain_ops(user_id)})
 
 
+class SelectionIn(BaseModel):
+    user_id: str = "default_user"
+    text: str = ""          # 用户当前选中的文本
+    page: str = ""          # 位置标签：ppt="第N页"、xlsx=单元格地址、docx 留空
+    editor_type: str = ""   # word / cell / slide
+
+
+@app.post("/office/selection")
+async def office_selection_set(body: SelectionIn):
+    """反向桥：编辑器插件上报用户当前选区；助手侧栏轮询取来预填聊天输入框。"""
+    from app.office_ops import set_selection
+    set_selection(body.user_id, {"text": body.text, "page": body.page, "editor_type": body.editor_type})
+    return JSONResponse({"ok": True})
+
+
+@app.get("/office/selection")
+async def office_selection_get(user_id: str = "default_user"):
+    """助手侧栏轮询：取用户当前选区（无则空对象）。"""
+    from app.office_ops import get_selection
+    return JSONResponse(get_selection(user_id))
+
+
 # ---------------------------------------------------------------------------
 # SSE 缓存管理接口
 # ---------------------------------------------------------------------------
