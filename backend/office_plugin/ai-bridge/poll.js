@@ -74,25 +74,35 @@
   }
 
   function reportSelection() {
+    var et = editorType();
+    if (et === "cell") {
+      // 表格：GetSelectedText 取不到单元格内容（返回恒空），改用 callCommand 读活动单元格
+      // 地址+值。用「地址\x01值」当变化签名：换格子/改值都触发；选空格子只带地址、值为空。
+      window.Asc.plugin.callCommand(function () {
+        try {
+          var cell = Api.GetActiveSheet().GetActiveCell();
+          return cell.GetAddress(false, false, "xlA1") + "\u0001" + (cell.GetValue() || "");
+        } catch (e) { return ""; }
+      }, false, false, function (res) {
+        res = res || "";
+        if (res === lastSel) return;
+        lastSel = res;
+        var i = res.indexOf("\u0001");
+        postSel(i < 0 ? "" : res.substr(i + 1), i < 0 ? "" : res.substr(0, i));
+      });
+      return;
+    }
+    // word / slide：选中文本靠 GetSelectedText；slide 再补页码标签。
     window.Asc.plugin.executeMethod("GetSelectedText", [], function (text) {
       text = text || "";
       if (text === lastSel) return;          // 无变化不上报（含连续空）
       lastSel = text;
       if (!text) { postSel("", ""); return; }
-      // 有选区：取位置标签（ppt=第N页 / xlsx=单元格地址 / word 留空），再上报。
-      // ponytail: 位置标签靠 callCommand 返回值，个别引擎版本可能取不到 → 退化成空标签，不影响文本上报。
-      window.Asc.scope = window.Asc.scope || {};
-      window.Asc.scope.et = editorType();
+      if (et !== "slide") { postSel(text, ""); return; }
       window.Asc.plugin.callCommand(function () {
-        try {
-          var et = Asc.scope.et;
-          if (et === "slide") return "第" + (Api.GetPresentation().GetCurrentSlideIndex() + 1) + "页";
-          if (et === "cell") return Api.GetActiveSheet().GetActiveCell().GetAddress(false, false, "xlA1");
-        } catch (e) {}
+        try { return "第" + (Api.GetPresentation().GetCurrentSlideIndex() + 1) + "页"; } catch (e) {}
         return "";
-      }, false, false, function (page) {
-        postSel(text, page || "");
-      });
+      }, false, false, function (page) { postSel(text, page || ""); });
     });
   }
 

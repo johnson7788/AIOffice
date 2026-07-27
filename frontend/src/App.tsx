@@ -717,12 +717,14 @@ export default function App({
         const r = await fetch(`/office/selection?user_id=${encodeURIComponent(userId)}`);
         const sel = await r.json();
         const text = (sel?.text || '').trim();
-        if (!text) return;
-        const sig = `${text}@@${sel.page || ''}`;
+        const page = sel?.page || '';
+        if (!text && !page) return;  // 无文本也无位置（如未选任何东西）：跳过
+        const sig = `${text}@@${page}`;
         if (sig === lastSelSigRef.current) return;  // 同一选区只预填一次
         lastSelSigRef.current = sig;
-        const loc = sel.page ? ` · ${sel.page}` : '';
-        const prefix = `已选中【${openFile!.name}】${loc}：\n「${text}」\n\n请补充要如何修改：`;
+        const loc = page ? ` · ${page}` : '';
+        const body = text ? `\n「${text}」\n` : '\n';  // 空单元格只带地址、无内容行
+        const prefix = `已选中【${openFile!.name}】${loc}：${body}\n请补充要如何修改：`;
         setInput((cur) => {
           if (cur === '' || cur === lastAutoFillRef.current) { lastAutoFillRef.current = prefix; return prefix; }
           return cur;
