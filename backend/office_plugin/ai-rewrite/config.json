@@ -1,0 +1,22 @@
+{
+  "name": "AI 改写",
+  "guid": "asc.a1b2c3d4-ai-rewrite-selection-0001",
+  "version": "1.0",
+  "minVersion": "6.1",
+  "variations": [
+    {
+      "description": "选中文本 → 输入指令 → AI 改写并替换选区",
+      "url": "index.html",
+      "icons": ["resources/icon.png", "resources/icon@2x.png"],
+      "isViewer": false,
+      "EditorsSupport": ["word", "cell", "slide"],
+      "isVisual": true,
+      "isModal": false,
+      "isInsideMode": false,
+      "isSystem": false,
+      "initDataType": "text",
+      "initData": "",
+      "buttons": []
+    }
+  ]
+}

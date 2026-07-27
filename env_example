@@ -1,0 +1,121 @@
+# ===========================================================================
+# 模型配置 (Model Configuration)
+# ---------------------------------------------------------------------------
+# 通过 MODEL_PROVIDER 选择模型供应商，MODEL_NAME 指定具体模型名称。
+# 然后填写对应供应商的 API Key（及可能需要的 API URL）即可。
+#
+# 支持的 MODEL_PROVIDER:
+#   google      — Google Gemini，直接使用模型名，需要 GOOGLE_API_KEY
+#   claude       — Anthropic Claude，需要 CLAUDE_API_KEY
+#   openai       — OpenAI，需要 OPENAI_API_KEY
+#   deepseek     — DeepSeek，需要 DEEPSEEK_API_KEY
+#   ali          — 阿里百炼(DashScope)，需要 ALI_API_KEY
+#   silicon      — 硅基流动(SiliconFlow)，需要 SILICON_API_KEY
+#   modelscope   — 魔搭(ModelScope)，需要 MODELSCOPE_API_KEY
+#   doubao       — 火山引擎豆包(Doubao/Ark)，需要 DOUBAO_API_KEY
+#   vllm         — 自建 vLLM 服务，需要 VLLM_API_KEY + VLLM_API_URL
+#   ollama       — 本地 Ollama 服务，需要 OLLAMA_API_KEY + OLLAMA_API_URL
+#   local        — 本地兼容 OpenAI 接口(localhost:6688)，需要 ALI_API_KEY
+# ===========================================================================
+
+# 当前使用的供应商与模型
+MODEL_PROVIDER=deepseek
+MODEL_NAME=deepseek-chat
+
+# ---------------------------------------------------------------------------
+# 各供应商 API Key（按需填写所选 MODEL_PROVIDER 对应的那一个即可）
+# ---------------------------------------------------------------------------
+# Google Gemini，例如 MODEL_NAME=gemini-2.5-pro
+GOOGLE_API_KEY=
+
+# Anthropic Claude，例如 MODEL_NAME=claude-sonnet-4-5
+CLAUDE_API_KEY=
+
+# OpenAI，例如 MODEL_NAME=gpt-4o
+OPENAI_API_KEY=
+
+# DeepSeek，例如 MODEL_NAME=deepseek-chat
+DEEPSEEK_API_KEY=your-key-here
+
+# 阿里百炼 DashScope，例如 MODEL_NAME=qwen-max
+ALI_API_KEY=
+
+# 硅基流动 SiliconFlow，例如 MODEL_NAME=Qwen/Qwen2.5-72B-Instruct
+SILICON_API_KEY=
+
+# 魔搭 ModelScope，例如 MODEL_NAME=Qwen/Qwen2.5-72B-Instruct
+MODELSCOPE_API_KEY=
+
+# 火山引擎豆包 Doubao/Ark，MODEL_NAME 填写接入点 ID(ep-xxxx)
+DOUBAO_API_KEY=
+
+# 自建 vLLM 服务
+VLLM_API_KEY=
+VLLM_API_URL=
+
+# 本地 Ollama 服务
+OLLAMA_API_KEY=
+OLLAMA_API_URL=http://localhost:11434/v1
+
+# ---------------------------------------------------------------------------
+# 视觉模型（用于 vision_analyze 图片分析/OCR）
+# ---------------------------------------------------------------------------
+# DeepSeek 等纯文本模型无视觉能力，图片分析需单独配置视觉模型。
+# 默认使用阿里百炼 qwen-vl-max（OpenAI 兼容端点）。
+VISION_MODEL=openai/qwen-vl-max
+VISION_API_KEY=
+VISION_API_BASE=https://dashscope.aliyuncs.com/compatible-mode/v1
+
+# ---------------------------------------------------------------------------
+# SSE 响应缓存（缓存位置：backend/cache/）
+# ---------------------------------------------------------------------------
+# 是否启用缓存：true/1/yes/on 启用，false/0/no/off 关闭（默认启用）
+SSE_CACHE_ENABLED=true
+# 最大缓存条目数（默认 500）
+SSE_CACHE_MAX_SIZE=500
+# 缓存有效期，单位秒（默认 86400 = 24 小时）
+SSE_CACHE_TTL=86400
+
+# ---------------------------------------------------------------------------
+# OpenSandbox 一次性准备（prepare.sh 使用）
+# ---------------------------------------------------------------------------
+# 拉取 execd/沙箱镜像的镜像加速源、服务端 API Key、以及沙箱默认超时。
+OSB_API_KEY=123456
+OSB_MIRROR=docker.1ms.run
+OSB_TIMEOUT=30m
+
+# ---------------------------------------------------------------------------
+# 多租户命令隔离（OpenSandbox）
+# ---------------------------------------------------------------------------
+# 启用后，terminal 工具的命令在每个租户（user_id）独占的隔离沙箱中执行，
+# 文件/进程/已装包互不干扰。未启用时命令在服务器本地执行（默认）。
+# 依赖：需先启动 OpenSandbox 服务（uvx opensandbox-server）+ Docker，
+#       并安装 SDK：uv pip install opensandbox
+SANDBOX_ENABLED=true
+# 预热池大小（启动时预建的空闲沙箱数）
+SANDBOX_POOL_SIZE=3
+# 沙箱镜像
+SANDBOX_IMAGE=python:3.12
+# OpenSandbox 服务连接
+SANDBOX_DOMAIN=localhost:8080
+SANDBOX_PROTOCOL=http
+SANDBOX_API_KEY=123456
+# 单个沙箱硬性存活上限（分钟），兜底防泄漏；活跃会自动续期
+SANDBOX_TIMEOUT_MINUTES=30
+# 租户闲置多久后回收其沙箱（分钟）
+SANDBOX_IDLE_MINUTES=15
+
+# ---------------------------------------------------------------------------
+# ONLYOFFICE 在线编辑（doc/xls/ppt/pdf）
+# ---------------------------------------------------------------------------
+# 启动 DocumentServer：docker compose up -d documentserver
+# JWT 密钥必须与 DocumentServer 一致（安全边界），务必改成随机长字符串
+OFFICE_JWT_SECRET=change-me-to-a-long-random-secret
+# DocumentServer 对外端口（8080 被 OpenSandbox 占用，用 8081）
+OFFICE_PORT=8081
+# 浏览器访问 DocumentServer 的地址（加载 api.js）
+OFFICE_DOCSERVER_URL=http://localhost:8081
+# DocumentServer 容器回访本后端的地址（download/callback）。
+# 不能填 localhost（那是容器自己）。macOS/Windows 用 host.docker.internal；
+# Linux 用宿主机 IP 或给 documentserver 加 extra_hosts。
+OFFICE_BACKEND_URL=http://host.docker.internal:8585

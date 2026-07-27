@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Markdown 内容样式 */
+.prose-invert h1,
+.prose-invert h2,
+.prose-invert h3,
+.prose-invert h4 {
+  color: #e2e8f0;
+  font-weight: 700;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+}
+
+.prose-invert h1 { font-size: 1.5em; }
+.prose-invert h2 { font-size: 1.25em; }
+.prose-invert h3 { font-size: 1.1em; }
+
+.prose-invert blockquote {
+  border-left: 3px solid #475569;
+  padding-left: 1em;
+  color: #94a3b8;
+  margin: 0.75em 0;
+}
+
+.prose-invert hr {
+  border-color: #334155;
+  margin: 1em 0;
+}
+
+.prose-invert table {
+  width: 100%;
+}
+
+.prose-invert tr:hover {
+  background: rgba(51, 65, 85, 0.2);
+}
+
+/* textarea 隐藏滚动条但保持可滚动 */
+textarea::-webkit-scrollbar {
+  width: 4px;
+}
+textarea::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 2px;
+}

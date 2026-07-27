@@ -1,0 +1,35 @@
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+.eggs
+.env
+**/.env
+.git
+.gitignore
+.idea
+.vscode
+Dockerfile
+.dockerignore
+docker-compose.yml
+deploy.sh
+
+# 虚拟环境 / 依赖产物（体积大、平台相关，绝不进镜像）
+.venv
+backend/.venv
+**/node_modules
+
+# 与后端镜像无关的部分
+frontend
+manage_frontend
+manage_backend
+docs
+test
+sandbox-image
+
+# 后端运行期数据（容器内自会重建）
+backend/uploads
+backend/cache
+backend/logs
+backend/tests
+backend/client.py

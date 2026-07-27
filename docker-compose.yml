@@ -1,0 +1,39 @@
+services:
+  arxiv-research-agent:
+    build: .
+    container_name: arxiv-research-agent
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8046}:8046"
+    env_file:
+      - .env
+    environment:
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:?err}
+      - WORKERS=${WORKERS:-4}
+      - TIMEOUT=${TIMEOUT:-600}
+      - WORKER_CONNECTIONS=${WORKER_CONNECTIONS:-1000}
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: "2G"
+        reservations:
+          cpus: "0.5"
+          memory: "512M"
+
+  # ONLYOFFICE 文档服务器 —— 在线编辑 doc/xls/ppt/pdf。
+  # 8080 被 OpenSandbox 占用，故对外映射 8081。JWT 密钥与后端共享。
+  documentserver:
+    image: onlyoffice/documentserver
+    container_name: onlyoffice-documentserver
+    restart: unless-stopped
+    ports:
+      - "${OFFICE_PORT:-8081}:80"
+    environment:
+      - JWT_ENABLED=true
+      - JWT_SECRET=${OFFICE_JWT_SECRET:?err}
+    volumes:
+      # 挂进免费插件「AI 改写」（选区→LLM→写回）。社区版自动发现该目录，改后重启容器生效。
+      - ./backend/office_plugin/ai-rewrite:/var/www/onlyoffice/documentserver/sdkjs-plugins/ai-rewrite
+      # 「AI 桥」后台常驻插件：autostart 轮询后端信箱→callCommand 落地（P6.3 broker 桥）
+      - ./backend/office_plugin/ai-bridge:/var/www/onlyoffice/documentserver/sdkjs-plugins/ai-bridge

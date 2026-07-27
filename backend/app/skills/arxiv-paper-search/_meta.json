@@ -1,0 +1,12 @@
+{
+  "slug": "arxiv-paper-search",
+  "version": "1.0.0",
+  "changelog": [
+    {
+      "version": "1.0.0",
+      "changes": [
+        "初始版本发布"
+      ]
+    }
+  ]
+}

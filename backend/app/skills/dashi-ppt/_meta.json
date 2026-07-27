@@ -1,0 +1,12 @@
+{
+  "slug": "dashi-ppt",
+  "version": "0.4.2",
+  "changelog": [
+    {
+      "version": "0.4.2",
+      "changes": [
+        "接入可编辑型 PPT 生成（HTML 模板编排 + 可编辑 PPTX/PDF 导出）"
+      ]
+    }
+  ]
+}

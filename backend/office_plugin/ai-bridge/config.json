@@ -1,0 +1,22 @@
+{
+  "name": "AI 桥",
+  "guid": "asc.b2c3d4e5-ai-bridge-poll-0001",
+  "version": "1.0",
+  "minVersion": "6.1",
+  "variations": [
+    {
+      "description": "后台常驻：轮询后端信箱，把助手侧栏投递的 op 落到编辑器（P6.3 broker 桥）",
+      "url": "background.html",
+      "icons": [],
+      "isViewer": true,
+      "EditorsSupport": ["word", "cell", "slide"],
+      "isVisual": false,
+      "isModal": false,
+      "isInsideMode": false,
+      "isSystem": true,
+      "initDataType": "none",
+      "initData": "",
+      "buttons": []
+    }
+  ]
+}

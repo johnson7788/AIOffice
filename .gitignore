@@ -1,0 +1,111 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+.eggs/
+*.egg-info/
+.idea/
+.vscode/
+medical_skills/report.docx
+medical_skills/report.html
+medical_skills/report.md
+
+# Compiled class file
+*.class
+
+*.pkl
+.DS_Store
+# Log file
+*.log
+*.pyc
+.idea
+__pycache__
+venv
+*.swp
+.qoder
+
+node_modules
+
+#model
+formbot/models/
+
+# BlueJ files
+*.ctxt
+
+# Mobile Tools for Java (J2ME)
+.mtj.tmp/
+
+# Package Files #
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
+hs_err_pid*
+*.lock
+.git
+
+# 模型
+*.pth
+*.pt
+
+.env
+.DS_Store
+build/
+**/build/
+DerivedData
+*.ipa
+.idea
+node_modules/
+npm-debug.log
+yarn-error.log
+**/Pods/
+vendor/
+.env*
+cache
+.env_dev
+.env_prod
+.parquet
+.claude
+.claude/settings.local.json
+.next
+dist
+
+# 日志（可能含密钥/对话内容）
+logs/
+**/logs/
+*.jsonl
+
+# 会话数据库
+*.db
+.adk/
+**/.adk/
+
+# 用户上传文件（运行时产物）
+uploads/
+**/uploads/
+docs/migration-plan.md
+
+.env
+outputs/
+node_modules/
+*.bak
+logs/
+cache/
+backend/app/.adk/session.db
+frontend/dist
+backend/uploads
+backend/rag_storage/
+backend/rag_output/
+manage_backend/data/
+
+# ONLYOFFICE 容器运行时 gzip 的插件资源
+backend/office_plugin/**/*.gz
+# Playwright 测试产物
+frontend/test-results/
+frontend/playwright-report/
+frontend/tests/*.png
