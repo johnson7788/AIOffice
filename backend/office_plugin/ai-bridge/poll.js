@@ -19,6 +19,17 @@
   };
 
   function applyOp(op) {
+    if (op.type === "replace_selected_image") {
+      // 替换"当前选中的图片"：走插件方法 PutImageDataToSelection（不是 callCommand/Builder），
+      // replaceMode:true = 就地换掉选中图、保留其位置尺寸框。src 是 data URI，尺寸是新图原始像素。
+      console.log("[ai-bridge] applyOp replace_selected_image " + op.width + "x" + op.height);
+      window.Asc.plugin.executeMethod(
+        "PutImageDataToSelection",
+        [{ src: op.src, width: op.width, height: op.height, replaceMode: true }],
+        function () { console.log("[ai-bridge] PutImageDataToSelection done"); }
+      );
+      return;
+    }
     if (!CALLCMD_OPS[op.type]) return;
     console.log("[ai-bridge] applyOp " + JSON.stringify(op));
     window.Asc.scope = window.Asc.scope || {};
@@ -59,6 +70,14 @@
   var SEL_BACKEND = "http://localhost:8585/office/selection";
   var SEL_POLL_MS = 800;
   var lastSel = null;
+  var lastSlideDraw = "";   // 幻灯片图形选区的廉价去重键，防每 tick 重复取大 base64
+
+  function emitSlide(text, page) {
+    var sig = page + "\u0001" + text;
+    if (sig === lastSel) return;
+    lastSel = sig;
+    postSel(text, page);
+  }
 
   function editorType() {
     var info = window.Asc.plugin.info || {};
@@ -93,10 +112,9 @@
       return;
     }
     if (et === "slide") {
-      // 幻灯片：选中文本走 GetSelectedText，页码走 callCommand(GetCurSlideIndex)。
-      // 本版 docserver 的 Builder API 无法读"选中的图片/形状"（GetSelectedShapes 等皆 noMethod），
-      // 所以对图片/形状这类无文本选中，退化为「只带页码、文本空」——点图片时输入框至少更新到"第N页"。
-      // 签名用「页码\x01文本」：切页 / 换选区都触发。ponytail: 引擎日后开放选中形状 API 再补形状描述。
+      // 幻灯片：选中文本走 GetSelectedText；无文本时用插件方法 GetSelectionType 判断是否选中了图形，
+      // 是图形再用 GetImageDataFromSelection 区分图片(返回{src,width,height})/非图片形状(null)，
+      // 位置串报成「第N页 · 图片 W×H」，让用户/AI 知道选中的是哪张图。页码走 callCommand(GetCurSlideIndex)。
       window.Asc.plugin.executeMethod("GetSelectedText", [], function (text) {
         text = text || "";
         window.Asc.plugin.callCommand(function () {
@@ -104,10 +122,20 @@
           return "";
         }, false, false, function (page) {
           page = page || "";
-          var sig = page + "\u0001" + text;
-          if (sig === lastSel) return;
-          lastSel = sig;
-          postSel(text, page);
+          if (text) { lastSlideDraw = ""; emitSlide(text, page); return; }   // 选中文本：照旧
+          // 无文本 → 是否选中了图形/图片
+          window.Asc.plugin.executeMethod("GetSelectionType", [], function (st) {
+            if (st !== "drawing") { lastSlideDraw = ""; emitSlide("", page); return; }  // 空白/退出编辑：只报页码
+            var cheap = page + "\u0001drawing";
+            if (cheap === lastSlideDraw) return;   // 同页仍选图形，已报过——不重复取图片数据（大 base64）
+            lastSlideDraw = cheap;
+            // ponytail: 仅在图形选区变化时取一次图片信息；同页切换不同图形无法廉价区分，会停在首张的 W×H，
+            //           要精确到每张图再改成每 tick 取 GetImageDataFromSelection 或读图形位置。
+            window.Asc.plugin.executeMethod("GetImageDataFromSelection", [], function (img) {
+              var loc = (img && img.src) ? ("图片 " + img.width + "×" + img.height) : "图形";
+              emitSlide("", page + " · " + loc);
+            });
+          });
         });
       });
       return;

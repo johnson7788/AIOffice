@@ -15,6 +15,9 @@ ALLOWED_OPS = {
     "set_slide_text": ["slide", "shape", "text"],  # slide：改某页第 shape 个形状的文字
     "set_cell": ["cell", "value"],               # cell：GetRange(cell).SetValue(value)，cell=A1 或 A1:B2
     "replace_text": ["find", "replace"],         # word：全文查找替换 SearchAndReplace
+    # 把用户【当前选中的图片】替换成 src(data URI)。靠"当前选区"定位，无需图片 ID/序号——
+    # 用户在编辑器里选中哪张就改哪张，插件调 executeMethod("PutImageDataToSelection")。
+    "replace_selected_image": ["src", "width", "height"],
 }
 
 _HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
@@ -109,6 +112,12 @@ def parse_office_op(raw: str) -> dict:
             raise ValueError("cell 必须是 A1 或 A1:B2 形式的引用")
         if not isinstance(op["value"], str):
             raise ValueError("value 必须是字符串")
+    if t == "replace_selected_image":
+        if not (isinstance(op["src"], str) and op["src"].startswith("data:")):
+            raise ValueError("src 必须是 data: URI")
+        for k in ("width", "height"):
+            if not isinstance(op[k], int) or op[k] <= 0:
+                raise ValueError(f"{k} 必须是正整数")
     # 只保留已知字段，防止插件收到多余键
     return {k: op[k] for k in (["type"] + ALLOWED_OPS[t])}
 
@@ -127,10 +136,14 @@ if __name__ == "__main__":
         "type": "set_cell", "cell": "A1:C3", "value": "x"}
     assert parse_office_op('{"type":"set_slide_text","slide":1,"shape":0,"text":"标题"}') == {
         "type": "set_slide_text", "slide": 1, "shape": 0, "text": "标题"}
+    assert parse_office_op('{"type":"replace_selected_image","src":"data:image/png;base64,AAA","width":10,"height":20}') == {
+        "type": "replace_selected_image", "src": "data:image/png;base64,AAA", "width": 10, "height": 20}
     for bad in ['{}', '{"type":"drop_table"}', '{"type":"set_slide_background","slide":-1,"color":"#FFFACD"}',
                 '{"type":"set_slide_background","slide":0,"color":"red"}', 'not json',
                 '{"type":"set_cell","cell":"ZZ","value":"1"}',  # 无行号
                 '{"type":"set_cell","cell":"B2","value":7}',    # value 非字符串
+                '{"type":"replace_selected_image","src":"http://x","width":1,"height":1}',  # src 非 data URI
+                '{"type":"replace_selected_image","src":"data:x","width":0,"height":1}',    # width 非正
                 '{"type":"set_slide_text","slide":0,"shape":-1,"text":"x"}']:
         try:
             parse_office_op(bad)

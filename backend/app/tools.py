@@ -310,6 +310,7 @@ def enqueue_office_op(
     cell: str = "",
     value: str = "",
     shape: int = 0,
+    image: str = "",
 ) -> dict:
     """修改用户当前在工作台打开的 office 文档（.docx/.xlsx/.pptx）时**必须用本工具**，
     不要用 terminal + python-pptx/python-docx/openpyxl 去重写文件——那样会与编辑器 live 会话抢写、
@@ -325,6 +326,9 @@ def enqueue_office_op(
       - "replace_text"（全文查找替换）：find="原词"，replace="新词"
     - 通用：
       - "replace_selection"（用新文本替换用户当前选中的文本）：text="改写后的完整文本"
+      - "replace_selected_image"（替换用户当前选中的图片，pptx/docx/xlsx 皆可）：image="用户文档空间里替换用图片的路径或文件名"。
+        靠"当前选区"定位——用户在编辑器里选中哪张图就替换哪张，你无需知道图片序号/ID；
+        输入框会提示「已选中…图片 W×H」即表示有选中图。替换图从用户已上传/已生成的文件里取。
 
     每次只投递一个操作；需要多处改动就多次调用。
     返回 {"success": True, "op": {...}}；参数非法返回 {"error"}。
@@ -345,6 +349,32 @@ def enqueue_office_op(
         op.update(find=find, replace=replace)
     elif op_type == "replace_selection":
         op.update(text=text)
+    elif op_type == "replace_selected_image":
+        # 从用户文档空间读替换图 → data URI + 尺寸；op 携 src/width/height 给插件（PutImageDataToSelection）
+        if not image or not image.strip():
+            return {"error": "replace_selected_image 需要 image（替换用图片的路径/文件名）"}
+        uid0 = str(tool_context.state.get("_sbkey") or tool_context.user_id or "default_user")
+        root = (UPLOADS_DIR / uid0).resolve()
+        target = (root / image.lstrip("/")).resolve()
+        if target != root and not str(target).startswith(str(root) + os.sep):
+            return {"error": "非法图片路径"}
+        if not target.is_file():
+            target = next(root.rglob(image), None)  # 兜底：按文件名在文档空间里递归找
+        if not target or not target.is_file():
+            return {"error": f"未找到图片文件: {image}"}
+        data = target.read_bytes()
+        if len(data) > 8 * 1024 * 1024:
+            return {"error": "替换图片过大（>8MB）"}
+        from io import BytesIO
+
+        from PIL import Image
+        try:
+            with Image.open(BytesIO(data)) as im:
+                w, h = im.size
+        except Exception as e:
+            return {"error": f"无法解析图片: {e}"}
+        mime = _IMAGE_MIME.get(target.suffix.lower(), "image/png")
+        op.update(src=f"data:{mime};base64,{base64.b64encode(data).decode()}", width=w, height=h)
     try:
         op = parse_office_op(_json.dumps(op))  # 复用同一套 op 校验
     except ValueError as e:
@@ -352,7 +382,8 @@ def enqueue_office_op(
 
     user_id = str(tool_context.state.get("_sbkey") or tool_context.user_id or "default_user")
     enqueue_op(user_id, op)
-    return {"success": True, "op": op}
+    # src 是大 base64，回给 agent 的摘要里剔掉，避免灌爆上下文
+    return {"success": True, "op": {**op, "src": f"<{op['width']}x{op['height']} image>"} if op.get("type") == "replace_selected_image" else op}
 
 
 # ---------------------------------------------------------------------------
