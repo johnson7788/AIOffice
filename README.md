@@ -389,6 +389,7 @@ skill-ppt-agents/
 ├── start_sandbox.sh              # 启动 OpenSandbox 服务端（:8080，幂等——已在运行则自动跳过）；沙箱由后端连接池按租户自动创建
 ├── start.sh                      # 本地开发启动：后端（:8585，uv run）+ 前端（:3585，npm run dev），Ctrl+C 统一关闭
 ├── deploy.sh                     # 生产部署（git pull → docker compose up → 健康检查）；基础版本，尚未详细优化
+├── check_start.py                # 启动后状态自检：逐项检查 Docker、docserver、插件、后端、前端、沙箱，FAIL 给出修复命令
 │
 ├── backend/
 │   ├── pyproject.toml            # Python 依赖（hatchling 构建）
@@ -517,6 +518,14 @@ TEST_SERVER_URL=http://host:port pytest . -v  # 对远程服务器测试
 
 > `test_office_files.py` 直接把 FastAPI app 挂到 httpx ASGITransport 上跑，覆盖 P0 文件读写删 + `../` 越权、
 > P2 网关 config 签发/download 验签/callback 写回、P3 `save_to_workspace`，15 个用例，无需 Docker 或运行中的服务。
+
+### 启动后自检
+
+```bash
+python3 check_start.py    # 全部 OK 退出 0，任一 FAIL 退出 1 并给出修复命令
+```
+
+逐项检查：Docker daemon → docserver 容器 → plugins.json 楔死（头号坑）→ ai-bridge 插件注册 → `.js.gz` 同步与过期 → 后端 :8585 → 前端 :3585 → OpenSandbox 服务（仅 `SANDBOX_ENABLED=true` 时）。本机请求绕过代理直连，避免 Clash 等代理造成误导性的 502。
 
 ---
 
