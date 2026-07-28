@@ -105,6 +105,8 @@ manage_backend/data/
 
 # ONLYOFFICE 容器运行时 gzip 的插件资源
 backend/office_plugin/**/*.gz
+# OpenSandbox 仓库本地配置（start_sandbox.sh 按本机 uploads 路径自动生成）
+.sandbox.toml
 # Playwright 测试产物
 frontend/test-results/
 frontend/playwright-report/

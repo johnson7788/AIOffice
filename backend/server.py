@@ -415,7 +415,6 @@ def _friendly_tool_name(raw: str) -> str:
         "load_skill_resource": "加载参考资料",
         "generate_ppt": "生成 PPT",
         "save_to_workspace": "保存到工作台",
-        "sync_sandbox_to_workspace": "同步产物到工作台",
     }
     return mapping.get(raw, raw)
 
@@ -564,7 +563,7 @@ async def clear_uploads(user_id: str = "default_user"):
 # 文件工作台 API — 以 uploads/<user_id>/ 为用户的文档空间（产物、上传件都在这）
 # 供文件树、Excalidraw、ONLYOFFICE 网关共用。
 # ponytail: 用户文档空间 = 本地 uploads/<user_id>/（现有产物/下载都在这），
-#           沙箱仍是代码执行环境；需要时用 agent 的 sync_upload_to_sandbox 打通。
+#           沙箱按租户把该目录 RW 挂到 /uploads，agent 直接读写、改动即落回，无需搬运。
 # ---------------------------------------------------------------------------
 
 def _safe_user_path(user_id: str, rel: str) -> Path:

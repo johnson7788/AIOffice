@@ -23,6 +23,18 @@ sys.modules.setdefault("opensandbox", types.ModuleType("opensandbox"))
 sys.modules.setdefault("opensandbox.models", types.ModuleType("opensandbox.models"))
 sys.modules["opensandbox.models.execd"] = _execd
 
+# start() 只需要 ConnectionConfig；stub 掉以免测试依赖真实 SDK（_create_for 被测试覆盖，不会真建沙箱）。
+_config = types.ModuleType("opensandbox.config")
+
+
+class ConnectionConfig:
+    def __init__(self, **kw):
+        pass
+
+
+_config.ConnectionConfig = ConnectionConfig
+sys.modules["opensandbox.config"] = _config
+
 from app.sandbox import SandboxManager  # noqa: E402
 
 
@@ -63,18 +75,16 @@ class _Sandbox:
         return _Exec([f"out:{command}@{self.sid}"], ["err"], 0)
 
 
-class _Pool:
-    def __init__(self):
-        self.acquires = 0
-
-    async def acquire(self, sandbox_timeout=None):
-        self.acquires += 1
-        return _Sandbox(self.acquires)
-
-
 def _mgr():
+    # 不再用池：每租户按需 _create_for；这里注入假的 create 计数 + 假沙箱。
     m = SandboxManager()
-    m._pool = _Pool()
+    m.creates = 0
+
+    async def _fake_create(key):
+        m.creates += 1
+        return _Sandbox(m.creates)
+
+    m._create_for = _fake_create
     return m
 
 
@@ -83,7 +93,7 @@ async def _test_same_key_reuses_one_sandbox():
     a = await m._get("u1")
     b = await m._get("u1")
     assert a is b
-    assert m._pool.acquires == 1
+    assert m.creates == 1
     assert b.renews == 1  # 复用时续期
 
 
@@ -92,7 +102,7 @@ async def _test_distinct_keys_isolated():
     a = await m._get("u1")
     b = await m._get("u2")
     assert a is not b
-    assert m._pool.acquires == 2
+    assert m.creates == 2
 
 
 async def _test_run_maps_result():
@@ -110,14 +120,18 @@ async def _test_release_kills_and_reacquires():
     assert sb.killed is True
     sb2 = await m._get("u1")
     assert sb2 is not sb
-    assert m._pool.acquires == 2
+    assert m.creates == 2
 
 
 def test_run_sync_bridges_to_loop():
     """同步入口 run_sync 应把协程投递到专用循环并阻塞拿到结果。"""
     from app import sandbox as sbx
     asyncio.run(sbx.start_pool())
-    sbx.manager._pool = _Pool()
+
+    async def _fake_create(key):
+        return _Sandbox(1)
+
+    sbx.manager._create_for = _fake_create
 
     try:
         r = sbx.run_sync("u1", "echo hi", timeout=5)

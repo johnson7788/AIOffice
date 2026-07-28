@@ -49,11 +49,8 @@ from app.tools import (
     ensure_sandbox_skills,
     generate_ppt,
     save_to_workspace,
-    sync_sandbox_to_workspace,
-    sync_upload_to_sandbox,
     terminal,
     todo,
-    upload_to_sandbox,
     vision_analyze,
 )
 
@@ -167,9 +164,6 @@ root_agent = Agent(
         FunctionTool(generate_ppt),
         FunctionTool(save_to_workspace),
         FunctionTool(enqueue_office_op),
-        FunctionTool(upload_to_sandbox),
-        FunctionTool(sync_upload_to_sandbox),
-        FunctionTool(sync_sandbox_to_workspace),
         # FunctionTool(ensure_sandbox_skills),
         clarify_tool,
     ],

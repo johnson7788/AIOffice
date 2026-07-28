@@ -1,8 +1,9 @@
 """按租户（user_id）隔离的命令执行 —— 基于 OpenSandbox。
 
-每个租户分配一个独占沙箱：文件系统、进程、已装的包互不干扰，实现安全的多租户隔离。
-沙箱来自一个预热池（默认 3 个），首次使用时从池中 acquire 一个，reconciler 自动补满；
-沙箱有硬性 TTL 兜底，租户闲置一段时间后回收。
+每个租户一个独占沙箱：首次使用时按需 Sandbox.create，并把该租户的上传目录
+（uploads/<user_id>）以 RW host 挂载进沙箱的 /uploads——corpus 等整个嵌套目录
+直接可见，agent 在沙箱里的改动直接落回真实文件（无需按文件同步）。沙箱有硬性
+TTL 兜底，闲置一段时间后回收。爆炸半径限于该租户自己的目录，跨租户仍隔离。
 
 通过环境变量启用/配置（见 env_example）。未启用时 terminal 工具回退到本地 subprocess，
 不引入任何外部依赖，行为不变。OpenSandbox SDK 仅在启用后按需 import。
@@ -25,13 +26,16 @@ def _flag(name: str, default: str = "false") -> bool:
 
 
 _ENABLED = _flag("SANDBOX_ENABLED")
-_POOL_SIZE = int(os.environ.get("SANDBOX_POOL_SIZE", "3"))
 _IMAGE = os.environ.get("SANDBOX_IMAGE", "python:3.12")
 _DOMAIN = os.environ.get("SANDBOX_DOMAIN", "localhost:8080")
 _PROTOCOL = os.environ.get("SANDBOX_PROTOCOL", "http")
 _API_KEY = os.environ.get("SANDBOX_API_KEY") or "123456"
 _TTL_MIN = int(os.environ.get("SANDBOX_TIMEOUT_MINUTES", "30"))
 _IDLE_MIN = int(os.environ.get("SANDBOX_IDLE_MINUTES", "15"))
+
+# 每租户把 uploads/<user_id> RW 挂进沙箱这个路径（沿用 agent 既有的 cd /uploads 习惯）。
+UPLOADS_DIR = pathlib.Path(__file__).parent.parent / "uploads"
+_MOUNT_PATH = "/uploads"
 
 _SKILLS_DIR = pathlib.Path(__file__).parent / "skills"
 _STDOUT_CAP = 8000
@@ -43,10 +47,10 @@ def enabled() -> bool:
 
 
 class SandboxManager:
-    """维护预热池 + 每租户独占沙箱的映射，闲置回收。"""
+    """每租户独占沙箱：按需创建 + RW 挂载租户上传目录，闲置回收。"""
 
     def __init__(self) -> None:
-        self._pool = None
+        self._conn = None
         self._ttl = timedelta(minutes=_TTL_MIN)
         # key -> (sandbox, last_active_monotonic)
         self._by_key: dict[str, tuple[object, float]] = {}
@@ -55,21 +59,10 @@ class SandboxManager:
         self._reaper: asyncio.Task | None = None
 
     async def start(self) -> None:
-        from opensandbox import InMemoryAsyncPoolStateStore, PoolCreationSpec, SandboxPoolAsync
         from opensandbox.config import ConnectionConfig
 
-        conn = ConnectionConfig(api_key=_API_KEY, domain=_DOMAIN, protocol=_PROTOCOL)
-        self._pool = SandboxPoolAsync(
-            pool_name="skill-agents",
-            max_idle=_POOL_SIZE,
-            state_store=InMemoryAsyncPoolStateStore(),
-            connection_config=conn,
-            creation_spec=PoolCreationSpec(
-                image=_IMAGE,
-                network_policy=None,  # null → allow-all，且不需要 egress sidecar
-            ),
-        )
-        await self._pool.start()
+        # 不再预热池：只存连接配置，沙箱在 _get 里按租户懒创建。
+        self._conn = ConnectionConfig(api_key=_API_KEY, domain=_DOMAIN, protocol=_PROTOCOL)
         self._reaper = asyncio.create_task(self._reap_loop())
 
     async def shutdown(self) -> None:
@@ -77,8 +70,7 @@ class SandboxManager:
             self._reaper.cancel()
         for key in list(self._by_key):
             await self.release(key)
-        if self._pool is not None:
-            await self._pool.shutdown()
+        self._conn = None
 
     async def _lock_for(self, key: str) -> asyncio.Lock:
         async with self._lock:
@@ -97,9 +89,29 @@ class SandboxManager:
                     pass
                 self._by_key[key] = (sandbox, time.monotonic())
                 return sandbox
-            sandbox = await self._pool.acquire(sandbox_timeout=self._ttl)
+            sandbox = await self._create_for(key)
             self._by_key[key] = (sandbox, time.monotonic())
             return sandbox
+
+    async def _create_for(self, key: str):
+        """按租户新建独占沙箱，把 uploads/<key> 以 RW host 挂到 /uploads。"""
+        from opensandbox import Sandbox
+        from opensandbox.models.sandboxes import Host, Volume
+
+        host_dir = (UPLOADS_DIR / key).resolve()
+        host_dir.mkdir(parents=True, exist_ok=True)  # 挂载点必须先存在，否则 host mount 失败
+        return await Sandbox.create(
+            image=_IMAGE,
+            volumes=[Volume(
+                name="uploads",
+                host=Host(path=str(host_dir)),
+                mount_path=_MOUNT_PATH,
+                read_only=False,  # RW：agent 改动直接落回真实上传目录
+            )],
+            network_policy=None,  # null → allow-all，且不需要 egress sidecar
+            connection_config=self._conn,
+            timeout=self._ttl,
+        )
 
     async def file_exists(self, key: str, path: str) -> bool:
         """检查沙箱内指定路径是否存在。"""
