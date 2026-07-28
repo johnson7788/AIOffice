@@ -70,7 +70,6 @@
   var SEL_BACKEND = "http://localhost:8585/office/selection";
   var SEL_POLL_MS = 800;
   var lastSel = null;
-  var lastSlideDraw = "";   // 幻灯片图形选区的廉价去重键，防每 tick 重复取大 base64
 
   function emitSlide(text, page) {
     var sig = page + "\u0001" + text;
@@ -122,15 +121,13 @@
           return "";
         }, false, false, function (page) {
           page = page || "";
-          if (text) { lastSlideDraw = ""; emitSlide(text, page); return; }   // 选中文本：照旧
+          if (text) { emitSlide(text, page); return; }   // 选中文本：照旧
           // 无文本 → 是否选中了图形/图片
           window.Asc.plugin.executeMethod("GetSelectionType", [], function (st) {
-            if (st !== "drawing") { lastSlideDraw = ""; emitSlide("", page); return; }  // 空白/退出编辑：只报页码
-            var cheap = page + "\u0001drawing";
-            if (cheap === lastSlideDraw) return;   // 同页仍选图形，已报过——不重复取图片数据（大 base64）
-            lastSlideDraw = cheap;
-            // ponytail: 仅在图形选区变化时取一次图片信息；同页切换不同图形无法廉价区分，会停在首张的 W×H，
-            //           要精确到每张图再改成每 tick 取 GetImageDataFromSelection 或读图形位置。
+            if (st !== "drawing") { emitSlide("", page); return; }  // 空白/退出编辑：只报页码
+            // ponytail: 每 tick 取一次 GetImageDataFromSelection（含大 base64），换图才能及时更新 W×H；
+            //   emitSlide 按「页+W×H」去重，同图不重复上报。若图很大导致每 800ms 取 base64 有开销，
+            //   再换成读选中图形的位置/id 做廉价去重键。（同页两张同尺寸图仍无法区分——那是识别问题，另议）
             window.Asc.plugin.executeMethod("GetImageDataFromSelection", [], function (img) {
               var loc = (img && img.src) ? ("图片 " + img.width + "×" + img.height) : "图形";
               emitSlide("", page + " · " + loc);

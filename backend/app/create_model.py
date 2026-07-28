@@ -9,7 +9,10 @@ import os
 import litellm
 from google.adk.models.lite_llm import LiteLlm
 from dotenv import load_dotenv
-litellm._turn_on_debug()
+# ponytail: DEBUG 会把每次请求完整 payload 打到控制台——含 vision_analyze 内嵌的整图 base64，
+# 多图分析时刷屏并拖慢。默认关，需要排查时置 LITELLM_DEBUG=1 再开。
+if os.environ.get("LITELLM_DEBUG"):
+    litellm._turn_on_debug()
 
 load_dotenv()
 def create_model(model:str, provider: str):
