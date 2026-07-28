@@ -3,6 +3,7 @@ import {
   File as FileIcon,
   Folder,
   FolderOpen,
+  FolderUp,
   RefreshCw,
   Trash2,
   Upload,
@@ -158,6 +159,23 @@ export default function Workspace({
     [userId, refresh],
   );
 
+  const onUploadDir = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files;
+      if (!files || files.length === 0) return;
+      for (const file of files) {
+        const relPath = (file as any).webkitRelativePath || '';
+        // strip the top-level folder name, keep only subpath
+        const dirParts = relPath.split('/');
+        const subPath = dirParts.length > 1 ? dirParts.slice(0, -1).join('/') : '';
+        await uploadFile(file, userId, subPath).catch(() => {});
+      }
+      e.target.value = '';
+      refresh();
+    },
+    [userId, refresh],
+  );
+
   const onDelete = useCallback(
     async (node: FileNode) => {
       if (!confirm(`删除 ${node.name}？`)) return;
@@ -187,9 +205,13 @@ export default function Workspace({
           <button className="text-slate-500 hover:text-slate-700" title="新建白板" onClick={onNewWhiteboard}>
             <PenLine size={15} />
           </button>
-          <label className="cursor-pointer text-slate-500 hover:text-slate-700" title="上传">
+          <label className="cursor-pointer text-slate-500 hover:text-slate-700" title="上传文件">
             <Upload size={15} />
             <input type="file" className="hidden" onChange={onUpload} />
+          </label>
+          <label className="cursor-pointer text-slate-500 hover:text-slate-700" title="上传目录">
+            <FolderUp size={15} />
+            <input type="file" className="hidden" {...({ webkitdirectory: '' } as any)} multiple onChange={onUploadDir} />
           </label>
           <button className="text-slate-500 hover:text-slate-700" title="刷新" onClick={refresh}>
             <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />

@@ -106,10 +106,11 @@ export async function postChat(message: string, userId: string = 'default_user')
 /**
  * 上传文件到后端
  */
-export async function uploadFile(file: File, userId: string = 'default_user') {
+export async function uploadFile(file: File, userId: string = 'default_user', relativePath: string = '') {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('user_id', userId);
+  if (relativePath) formData.append('relative_path', relativePath);
 
   const response = await fetch(`${API_BASE}/upload`, {
     method: 'POST',

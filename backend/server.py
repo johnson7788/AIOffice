@@ -512,16 +512,23 @@ async def _get_current_cards(user_id: str, session_id: str) -> list[dict]:
 # ---------------------------------------------------------------------------
 #TODO:修改为上传到模型沙盒？？？
 @app.post("/upload")
-async def upload_file(file: UploadFile = File(...), user_id: str = Form(default="default_user")):
+async def upload_file(file: UploadFile = File(...), user_id: str = Form(default="default_user"), relative_path: str = Form(default="")):
     user_dir = UPLOADS_DIR / user_id
     user_dir.mkdir(parents=True, exist_ok=True)
-    safe_name = file.filename or "unnamed"
-    dest_path = user_dir / safe_name
+    safe_name = os.path.basename(file.filename or "unnamed")  # 去掉文件名里可能夹带的路径
+    # preserve directory structure when uploading a folder
+    dest_dir = user_dir / relative_path if relative_path else user_dir
+    # 防目录穿越：relative_path 里的 ../ 不得逃出用户上传目录（否则可写任意路径）
+    base = user_dir.resolve()
+    if dest_dir.resolve() != base and not str(dest_dir.resolve()).startswith(str(base) + os.sep):
+        return JSONResponse({"error": "非法 relative_path"}, status_code=400)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest_path = dest_dir / safe_name
     if dest_path.exists():
         stem, suffix = os.path.splitext(safe_name)
         counter = 1
         while dest_path.exists():
-            dest_path = user_dir / f"{stem}_{counter}{suffix}"
+            dest_path = dest_dir / f"{stem}_{counter}{suffix}"
             counter += 1
     content = await file.read()
     dest_path.write_bytes(content)
