@@ -42,7 +42,7 @@
 
 ## 效果演示
 
-![Agent 输出示例](docs/Agent输出示例.gif)
+![Agent动态编辑](docs/动态编辑.png)
 
 > 以下为示例查询，展示智能体的完整工作流程。
 
@@ -730,3 +730,7 @@ TOOL_LABELS = {
 ## 致谢
 
 PPT 生成功能参考了 [dashi-ppt-skill](https://github.com/chuspeeism/dashi-ppt-skill) 的风格预设与出图提示词设计，感谢开源贡献。
+
+白板 / 思维导图功能基于 [Excalidraw](https://github.com/excalidraw/excalidraw) 开源画板集成，感谢 Excalidraw 团队提供的手绘风格绘图能力。
+
+在线文档编辑功能基于 [ONLYOFFICE Document Server](https://github.com/ONLYOFFICE/DocumentServer) 社区版实现，感谢 ONLYOFFICE 提供的开源文档协作引擎。
