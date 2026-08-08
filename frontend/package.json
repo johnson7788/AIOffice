@@ -1,0 +1,14 @@
+{
+  "name": "aioffice-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @genoffice/docs",
+    "build": "npm run build --workspace @genoffice/docs",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  }
+}
