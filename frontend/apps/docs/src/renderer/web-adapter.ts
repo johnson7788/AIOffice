@@ -378,3 +378,20 @@ declare global {
 
 window.desktop = desktop
 window.projectApi = projectApi
+
+// ── Home sidebar: projects + which docs belong to each ────────────────────
+export interface ProjectMeta {
+  id: string
+  name: string
+  isDefault: boolean
+}
+export async function listProjects(): Promise<ProjectMeta[]> {
+  const ps = await projectApi.listProjects()
+  return ps.map((p) => ({ id: p.id, name: p.name, isDefault: p.isDefault }))
+}
+/** doc ids in a project, derived from its chat timeline (chat_key == doc id).
+ *  ponytail: N+1 (one timeline call per project); fine for a personal SaaS. */
+export async function projectDocIds(projectId: string): Promise<string[]> {
+  const entries = await projectApi.getTimeline({ projectId, limit: 500 })
+  return [...new Set(entries.map((e) => e.filePath))]
+}

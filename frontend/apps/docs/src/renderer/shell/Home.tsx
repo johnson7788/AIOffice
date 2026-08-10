@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { type DocMeta, appUrl, clearToken, listDocuments } from '../web-adapter'
+import {
+  type DocMeta,
+  type ProjectMeta,
+  appUrl,
+  clearToken,
+  listDocuments,
+  listProjects,
+  projectDocIds,
+} from '../web-adapter'
 
 // A generation prompt is handed to the docs editor via sessionStorage; the docs
 // App picks it up on boot and auto-runs the agent (see App.tsx boot effect).
@@ -117,28 +125,44 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
   const [prompt, setPrompt] = useState('')
   const [kind, setKind] = useState<Kind>('docs')
   const [recent, setRecent] = useState<DocMeta[]>([])
-  const [filter, setFilter] = useState<Kind | 'other' | 'all'>('all')
+  // filter = 'all' | a Kind | 'other' | `p:<projectId>`
+  const [filter, setFilter] = useState<string>('all')
   const [query, setQuery] = useState('')
+  const [projects, setProjects] = useState<ProjectMeta[]>([])
+  // projectId → set of doc ids (from each project's chat timeline)
+  const [projDocs, setProjDocs] = useState<Record<string, Set<string>>>({})
 
   useEffect(() => {
     void listDocuments().then(setRecent)
+    void listProjects().then(async (ps) => {
+      setProjects(ps)
+      const map: Record<string, Set<string>> = {}
+      await Promise.all(
+        ps.map(async (p) => {
+          map[p.id] = new Set(await projectDocIds(p.id))
+        }),
+      )
+      setProjDocs(map)
+    })
   }, [])
 
-  // build once; filter nav counts + the filtered/searched grid derive from it
+  // filter nav counts (by type + by project) derive from the recent list
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: recent.length }
     for (const d of recent) c[docKind(d)] = (c[docKind(d)] ?? 0) + 1
+    for (const p of projects) c[`p:${p.id}`] = recent.filter((d) => projDocs[p.id]?.has(d.id)).length
     return c
-  }, [recent])
+  }, [recent, projects, projDocs])
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return recent.filter(
-      (d) =>
-        (filter === 'all' || docKind(d) === filter) &&
-        (!q || d.title.toLowerCase().includes(q)),
-    )
-  }, [recent, filter, query])
+    const inFilter = (d: DocMeta) => {
+      if (filter === 'all') return true
+      if (filter.startsWith('p:')) return projDocs[filter.slice(2)]?.has(d.id) ?? false
+      return docKind(d) === filter
+    }
+    return recent.filter((d) => inFilter(d) && (!q || d.title.toLowerCase().includes(q)))
+  }, [recent, filter, query, projDocs])
 
   const create = (k: Kind, text?: string) => {
     if (k === 'slides') goSlides(text)
@@ -153,10 +177,16 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
     if (text) create(kind, text)
   }
 
-  const NAV: { id: Kind | 'all'; label: string }[] = [
+  const NAV: { id: string; label: string }[] = [
     { id: 'all', label: '全部' },
     ...KINDS.map((k) => ({ id: k.id, label: k.label })),
   ]
+  const filterLabel =
+    filter === 'all'
+      ? '最近'
+      : (NAV.find((n) => n.id === filter)?.label ??
+        projects.find((p) => `p:${p.id}` === filter)?.name ??
+        '文档')
 
   return (
     <div className="home">
@@ -180,6 +210,26 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
             </button>
           ))}
         </nav>
+        {projects.length > 0 && (
+          <>
+            <div className="home-nav-group">项目</div>
+            <nav className="home-nav">
+              {projects.map((p) => {
+                const id = `p:${p.id}`
+                return (
+                  <button
+                    key={p.id}
+                    className={`home-nav-item${filter === id ? ' active' : ''}`}
+                    onClick={() => setFilter(id)}
+                  >
+                    <span className="home-nav-name">{p.name}</span>
+                    {counts[id] ? <span className="home-nav-count">{counts[id]}</span> : null}
+                  </button>
+                )
+              })}
+            </nav>
+          </>
+        )}
         <div className="home-side-spacer" />
         <button className="home-logout" onClick={() => { clearToken(); location.reload() }}>
           退出登录
@@ -242,7 +292,7 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
         </section>
 
         <section className="home-recent">
-          <div className="home-recent-title">{filter === 'all' ? '最近' : NAV.find((n) => n.id === filter)?.label}</div>
+          <div className="home-recent-title">{filterLabel}</div>
           {shown.length === 0 ? (
             <div className="home-empty">{query ? '没有匹配的文档' : '还没有文档'}</div>
           ) : (
