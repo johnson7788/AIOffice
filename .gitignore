@@ -123,3 +123,9 @@ backend/aioffice.db
 backend/storage/
 backend/.venv/
 backend/dist/
+
+# Real lockfiles must ship in the image build context (the blanket `*.lock`
+# rule above would keep them out of fresh clones → cargo --locked / uv resolve
+# against the network and fail, e.g. docker sidecar "exit code 101").
+!backend/uv.lock
+!backend/xlsx-engine/Cargo.lock
