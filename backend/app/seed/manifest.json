@@ -1,5 +1,6 @@
 [
   { "file": "word-sample.docx", "title": "欢迎使用 AI Office（Word 示例）.docx" },
   { "file": "ppt-sample.pptx", "title": "AI Office 演示示例（PPT）.pptx" },
-  { "file": "sheets-sample.xlsx", "title": "AI Office 表格示例（快速上手）.xlsx" }
+  { "file": "sheets-sample.xlsx", "title": "AI Office 表格示例（快速上手）.xlsx" },
+  { "file": "mindmap-sample.md", "title": "AI Office 思维导图示例.md" }
 ]

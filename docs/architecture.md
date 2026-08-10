@@ -12,7 +12,7 @@ genoffice 的编辑能力全部在 **renderer（React + 浏览器技术）**：
 | slides | 自研 canvas + pptx-engine / pptx-render |
 | sheets | Univer + 前端 JSZip（写规划） + 后端 Rust sidecar（读/recalc） |
 | pdf | pdf.js + pdf-lib（纯浏览器） |
-| markdown | TipTap 编辑纯文本 .md |
+| markdown | TipTap 编辑纯文本 .md，内置大纲/思维导图/分屏视图（Markmap） |
 
 renderer 唯一的外部依赖面 = preload 暴露的全局对象（`window.desktop` / `window.projectApi` / `window.slidesApi` 等）。**SaaS 化 = 用浏览器适配器 + FastAPI 后端重新实现这些对象，renderer 代码基本原样保留**：
 
@@ -74,6 +74,16 @@ AIOffice/
 | sheets | 3589 | `/sheets/` |
 
 vite dev 代理 `/ai /auth /documents /projects /files /sheets /share` → 后端 `:8585`。注意 `/ai` 代理带 `bypass`：带文件扩展名（`.tsx/.ts/.css`）的请求由 vite 直接服务，避免源码模块被吞。
+
+### 思维导图（复用 markdown app，零新增 AI 工具/后端）
+
+思维导图**本质是一份 Markdown 大纲**，因此不新建 app，而是在 markdown app 内加一个视图：
+
+- `apps/markdown/src/renderer/mindmap/MindmapView.tsx`：用 `markmap-lib` 的 `Transformer` 把 `editor.getMarkdown()` 转成树，`markmap-view` 的 `Markmap` 渲染为 SVG（`g.markmap-node`）。`editor.on('update')` 时重渲染 → AI 用现有块工具（`read_blocks`/`insert_content`/`replace_blocks`）改 Markdown，导图自动跟随（即使 `view=mindmap` 下 EditorContent DOM 未挂载，editor 实例仍在，改的是 state）。
+- App.tsx 加「大纲 / 导图 / 分屏」三视图切换（`?view=mindmap` 直达），其余（.md blob 存储、projectApi、AI-SSE）全部复用。
+- 首页（docs Shell）「思维导图」文件类型 → 跳 markdown app 带 `?view=mindmap&gen=<prompt>`；标题命中 `思维导图|脑图|.mindmap.md` 的最近文件也按导图打开。
+- **依赖坑**：markmap 0.18 的 lib/view/html-parser 都在运行时 `import 'markmap-common'` 却都不声明它 → 必须显式安装 `markmap-common`。
+- 未做拖拽式结构编辑（Phase 2，用户给的 OSS 清单无干净的 React 结构化树库）；选型见 `docs/mindmap-plan.md`。
 
 ## 4. 后端：模块与 API
 
@@ -154,7 +164,7 @@ vite dev 代理 `/ai /auth /documents /projects /files /sheets /share` → 后�
 
 - **backend**（`backend/tests/`，pytest）：auth / documents（roundtrip、跨租户 404、大小限制）/ projects / sharing+locks / sheets api / sheets spike / llm / api（搜索 reshape）。`pytest -q`：36 passed / 2 skipped（skipped = 需 `AIOFFICE_E2E=1` 的 live 模型 e2e）。sheets 测试需先构建 sidecar 二进制。
 - **frontend**（各 app `tests/`，vitest）：web-adapter、pdf-edit、doc-text、blank-workbook、pptx-pipeline 等。
-- **e2e**（`e2e/`，Playwright，独立）：15 用例，全部确定性、**不调模型**。api.spec 覆盖 healthz/auth/文档 roundtrip/跨租户/静态 SPA 路由；docs-ui.spec 走注册→Home→登录持久→退出→新建文档。测试栈用 `e2e/serve.py`（stdlib 反代镜像 nginx 路由）。
+- **e2e**（`e2e/`，Playwright，独立）：`api.spec`（healthz/auth/文档 roundtrip/跨租户/静态 SPA 路由）+ `docs-ui.spec`（注册→Home→登录持久→退出→新建文档）确定性、**不调模型**；`generate.spec` 走**真实模型**一句话生成 Word/PPT/思维导图/表格（慢，依赖 key，串行）。测试栈用 `e2e/serve.py`（stdlib 反代镜像 nginx 路由）。
 
 ## 9. 已知取舍 / 债务
 

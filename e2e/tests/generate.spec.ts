@@ -72,6 +72,21 @@ test('generate a PPT deck from the Home composer', async ({ page }) => {
     .toBeGreaterThanOrEqual(2)
 })
 
+test('generate a mind map from the Home composer', async ({ page }) => {
+  await registerViaUi(page)
+  await page.locator('.home-kind-btn', { hasText: '思维导图' }).click()
+  await page.locator('.home-input').fill('用多级 Markdown 大纲梳理"机器学习基础"的知识框架，用作思维导图。')
+  await page.locator('.home-send').click()
+  await page.waitForURL(/\/markdown\/.*view=mindmap/, { timeout: 15_000 })
+
+  // the markdown agent streams a hierarchical outline; MindmapView renders it as
+  // a markmap tree (g.markmap-node per outline node). Wait for a real multi-node map.
+  await expect(page.locator('.mindmap-svg')).toBeVisible({ timeout: 60_000 })
+  await expect
+    .poll(async () => page.locator('.mindmap-svg g.markmap-node').count(), { timeout: 300_000 })
+    .toBeGreaterThanOrEqual(3)
+})
+
 test('generate a spreadsheet from the Home composer', async ({ page }) => {
   await registerViaUi(page)
   await page.locator('.home-kind-btn', { hasText: '表格' }).click()

@@ -1820,6 +1820,62 @@ body {
   min-width: 0;
 }
 
+/* ---- outline / mindmap / split views ---- */
+
+.editor-area {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.view-switch {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 4px;
+  padding: 6px 10px;
+  border-bottom: 1px solid #e4e7eb;
+  background: #fbfbfc;
+}
+
+.view-tab {
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 6px;
+  padding: 3px 12px;
+  font-size: 13px;
+  color: #4b5563;
+  cursor: pointer;
+}
+
+.view-tab:hover {
+  background: #eef1f5;
+}
+
+.view-tab.active {
+  background: #e0e7ff;
+  border-color: #c7d2fe;
+  color: #2563eb;
+}
+
+.view-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.mindmap-svg {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  background: #fff;
+}
+
+.view-split .editor-scroll {
+  border-right: 1px solid #e4e7eb;
+}
+
 /* ---- transient AI-change highlight ---- */
 
 .doc-editor .ai-changed {

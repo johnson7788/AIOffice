@@ -7,8 +7,18 @@ function openWithPrompt(prompt: string, onOpen: () => void) {
   sessionStorage.setItem('aioffice.pendingPrompt', prompt)
   onOpen()
 }
+// Mind-map docs are Markdown, opened in the markdown app with the mind-map view on.
+const isMindmap = (title: string) => /思维导图|脑图|\.mindmap\.md$/i.test(title)
+
 function openDoc(doc: DocMeta, onOpen: () => void) {
-  // Route by file type: pptx→slides, xlsx→sheets, everything else→docs.
+  // Route by file type: pptx→slides, xlsx→sheets, mindmap md→markdown, else→docs.
+  if (isMindmap(doc.title)) {
+    const u = new URL(appUrl('markdown')) // appUrl already carries ?tok= in dev
+    u.searchParams.set('doc', doc.id) // markdown app consumes ?doc=
+    u.searchParams.set('view', 'mindmap')
+    location.href = u.toString()
+    return
+  }
   const cross =
     /\.pptx$/i.test(doc.title) ? 'slides' : /\.(xlsx|xls|csv)$/i.test(doc.title) ? 'sheets' : null
   if (cross) {
@@ -20,22 +30,25 @@ function openDoc(doc: DocMeta, onOpen: () => void) {
   sessionStorage.setItem('aioffice.pendingOpen', doc.id)
   onOpen()
 }
-// Slides/sheets live in separate apps; hand the prompt over via ?gen= (works
-// cross-origin in dev where sessionStorage wouldn't).
-function goApp(app: 'slides' | 'sheets', prompt?: string) {
+// Other apps live on separate origins; hand the prompt over via ?gen= (works
+// cross-origin in dev where sessionStorage wouldn't). `extra` carries e.g. ?view=.
+function goApp(app: 'slides' | 'sheets' | 'markdown', prompt?: string, extra?: Record<string, string>) {
   const u = new URL(appUrl(app))
   if (prompt) u.searchParams.set('gen', prompt)
+  for (const [k, v] of Object.entries(extra ?? {})) u.searchParams.set(k, v)
   location.href = u.toString()
 }
 const goSlides = (prompt?: string) => goApp('slides', prompt)
 const goSheets = (prompt?: string) => goApp('sheets', prompt)
+const goMindmap = (prompt?: string) => goApp('markdown', prompt, { view: 'mindmap' })
 
-type Kind = 'docs' | 'slides' | 'sheets'
+type Kind = 'docs' | 'slides' | 'sheets' | 'mindmap'
 
 const KINDS: { id: Kind; label: string; disabled?: boolean }[] = [
   { id: 'docs', label: '文字文档' },
   { id: 'slides', label: '演示文稿' },
   { id: 'sheets', label: '表格' },
+  { id: 'mindmap', label: '思维导图' },
 ]
 
 const QUICK: Record<Kind, { title: string; prompt: string }[]> = {
@@ -57,6 +70,12 @@ const QUICK: Record<Kind, { title: string; prompt: string }[]> = {
     { title: '项目进度跟踪', prompt: '帮我做一份项目任务进度跟踪表，含任务、负责人、截止日期和状态。' },
     { title: '财务三表模型', prompt: '帮我搭建一个简单的财务模型，包含利润表、资产负债表和现金流量表。' },
   ],
+  mindmap: [
+    { title: '知识梳理', prompt: '帮我用多级 Markdown 大纲梳理"机器学习基础"的知识框架，用作思维导图。' },
+    { title: '项目规划', prompt: '帮我用层级 Markdown 大纲规划一个新产品从立项到上线的思维导图。' },
+    { title: '读书笔记', prompt: '帮我把一本书的核心观点整理成多级 Markdown 大纲思维导图。' },
+    { title: '头脑风暴', prompt: '围绕"提升团队效率"做一次头脑风暴，用层级 Markdown 大纲输出思维导图。' },
+  ],
 }
 
 export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
@@ -73,6 +92,7 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
     if (!text) return
     if (kind === 'slides') goSlides(text)
     else if (kind === 'sheets') goSheets(text)
+    else if (kind === 'mindmap') goMindmap(text)
     else openWithPrompt(text, onOpenEditor)
   }
 
@@ -89,6 +109,9 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
           </button>
           <button className="home-new" onClick={() => goSheets()}>
             + 表格
+          </button>
+          <button className="home-new" onClick={() => goMindmap()}>
+            + 思维导图
           </button>
         </div>
         <div className="home-side-title">最近</div>
@@ -134,7 +157,9 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
                 ? '描述你想要的演示文稿，AI 会帮你生成 PPT…'
                 : kind === 'sheets'
                   ? '描述你想要的表格，AI 会帮你生成 Excel…'
-                  : '描述你想创建的内容，AI 会帮你生成文档…'
+                  : kind === 'mindmap'
+                    ? '描述你想要的主题，AI 会帮你生成思维导图…'
+                    : '描述你想创建的内容，AI 会帮你生成文档…'
             }
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}

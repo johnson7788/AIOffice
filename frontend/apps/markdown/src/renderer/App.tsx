@@ -18,6 +18,7 @@ import { SlashMenu, type SlashMenuHandle } from './components/SlashMenu'
 import { TableMenu } from './components/TableMenu'
 import { FrontmatterPanel } from './components/FrontmatterPanel'
 import { AiPanel, AiOfficeMark, type AiPreset, type MarkdownAiDeps } from './ai/AiPanel'
+import { MindmapView } from './mindmap/MindmapView'
 import { exportDocxBytes } from './export/docxExport'
 import { buildPrintHtml } from './export/printHtml'
 import { resolveImageSrc } from './editor/localImage'
@@ -25,6 +26,7 @@ import type { ExportFormat, SaveMode } from '../shared/ipc'
 
 type LoadStatus = 'loading' | 'ready' | 'error'
 type SaveState = 'idle' | 'saving' | 'saved' | 'failed'
+type View = 'outline' | 'mindmap' | 'split'
 
 const EMPTY_ENVELOPE: DocEnvelope = {
   frontmatter: '',
@@ -85,6 +87,10 @@ export default function App() {
   const [fmText, setFmText] = useState('')
   const [aiOpen, setAiOpen] = useState(true)
   const [aiPreset, setAiPreset] = useState<AiPreset | null>(null)
+  // ?view=mindmap (from Home "脑图") opens straight into the mind-map view
+  const [view, setView] = useState<View>(() =>
+    new URLSearchParams(location.search).get('view') === 'mindmap' ? 'mindmap' : 'outline',
+  )
 
   const statusRef = useRef<LoadStatus>('loading')
   const dirtyRef = useRef(false)
@@ -183,6 +189,15 @@ export default function App() {
       cancelled = true
     }
   }, [editor])
+
+  // Home hands a generation prompt over via ?gen= (cross-origin in dev); auto-run it
+  useEffect(() => {
+    const gen = new URLSearchParams(location.search).get('gen')
+    if (gen) {
+      setAiOpen(true)
+      setAiPreset({ text: gen, nonce: 1 })
+    }
+  }, [])
 
   const onFrontmatterChange = useCallback(
     (inner: string) => {
@@ -377,10 +392,29 @@ export default function App() {
             />
           )}
         </div>
-        <div className="editor-scroll" ref={scrollRef}>
-          <div className="doc-page">
-            {fmOpen && <FrontmatterPanel value={fmText} onChange={onFrontmatterChange} />}
-            <EditorContent editor={editor} />
+        <div className={`editor-area view-${view}`}>
+          <div className="view-switch">
+            {(['outline', 'mindmap', 'split'] as View[]).map((v) => (
+              <button
+                key={v}
+                type="button"
+                className={`view-tab${view === v ? ' active' : ''}`}
+                onClick={() => setView(v)}
+              >
+                {v === 'outline' ? '大纲' : v === 'mindmap' ? '导图' : '分屏'}
+              </button>
+            ))}
+          </div>
+          <div className="view-body">
+            {view !== 'mindmap' && (
+              <div className="editor-scroll" ref={scrollRef}>
+                <div className="doc-page">
+                  {fmOpen && <FrontmatterPanel value={fmText} onChange={onFrontmatterChange} />}
+                  <EditorContent editor={editor} />
+                </div>
+              </div>
+            )}
+            {view !== 'outline' && <MindmapView editor={editor} />}
           </div>
         </div>
       </div>
