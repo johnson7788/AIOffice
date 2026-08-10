@@ -7501,6 +7501,33 @@ tr > .page-gap-cut {
   border-color: #6366f1;
   color: #4f46e5;
 }
+.home-doc-actions button.home-doc-danger:hover {
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+.home-doc-thumb-wrap {
+  position: relative;
+  width: 100%;
+}
+.home-doc-star {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.85);
+  color: #f59e0b;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+}
+.home-doc:hover .home-doc-star,
+.home-doc-star.on {
+  opacity: 1;
+}
 .home-modal-backdrop {
   position: fixed;
   inset: 0;

@@ -12,11 +12,16 @@ import {
   listProjects,
   listShares,
   listVersions,
+  moveToProject,
   projectDocIds,
+  purgeDocument,
+  restoreDocument,
   restoreVersion,
   revokeShare,
+  setStar,
   shareUrl,
   thumbObjectUrl,
+  trashDocument,
 } from '../web-adapter'
 
 // A generation prompt is handed to the docs editor via sessionStorage; the docs
@@ -169,6 +174,10 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
   // share modal: the doc whose share links are shown (null = closed)
   const [shareFor, setShareFor] = useState<DocMeta | null>(null)
   const [shares, setShares] = useState<ShareMeta[]>([])
+  // recycle bin (loaded lazily when the 回收站 filter is active)
+  const [trash, setTrash] = useState<DocMeta[]>([])
+  // move-to-project modal: the doc being moved (null = closed)
+  const [moveFor, setMoveFor] = useState<DocMeta | null>(null)
 
   useEffect(() => {
     void listDocuments().then(setRecent)
@@ -189,18 +198,22 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
     const c: Record<string, number> = { all: recent.length }
     for (const d of recent) c[docKind(d)] = (c[docKind(d)] ?? 0) + 1
     for (const p of projects) c[`p:${p.id}`] = recent.filter((d) => projDocs[p.id]?.has(d.id)).length
+    c.starred = recent.filter((d) => d.starred).length
+    c.trash = trash.length
     return c
-  }, [recent, projects, projDocs])
+  }, [recent, projects, projDocs, trash])
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
+    const base = filter === 'trash' ? trash : recent
     const inFilter = (d: DocMeta) => {
-      if (filter === 'all') return true
+      if (filter === 'all' || filter === 'trash') return true
+      if (filter === 'starred') return !!d.starred
       if (filter.startsWith('p:')) return projDocs[filter.slice(2)]?.has(d.id) ?? false
       return docKind(d) === filter
     }
-    return recent.filter((d) => inFilter(d) && (!q || d.title.toLowerCase().includes(q)))
-  }, [recent, filter, query, projDocs])
+    return base.filter((d) => inFilter(d) && (!q || d.title.toLowerCase().includes(q)))
+  }, [recent, trash, filter, query, projDocs])
 
   const create = (k: Kind, text?: string) => {
     if (k === 'slides') goSlides(text)
@@ -227,6 +240,39 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
     }
   }
 
+  // lazy-load the recycle bin when its filter becomes active
+  useEffect(() => {
+    if (filter === 'trash') void listDocuments(true).then(setTrash)
+  }, [filter])
+
+  const toggleStar = async (d: DocMeta) => {
+    const next = !d.starred
+    if (await setStar(d.id, next))
+      setRecent((r) => r.map((x) => (x.id === d.id ? { ...x, starred: next } : x)))
+  }
+  const doTrash = async (d: DocMeta) => {
+    if (await trashDocument(d.id)) setRecent((r) => r.filter((x) => x.id !== d.id))
+  }
+  const doRestoreDoc = async (d: DocMeta) => {
+    if (await restoreDocument(d.id)) {
+      setTrash((t) => t.filter((x) => x.id !== d.id))
+      void listDocuments().then(setRecent)
+    }
+  }
+  const doPurge = async (d: DocMeta) => {
+    if (!confirm(`彻底删除「${d.title}」？此操作不可恢复。`)) return
+    if (await purgeDocument(d.id)) setTrash((t) => t.filter((x) => x.id !== d.id))
+  }
+  const doMove = async (projectId: string) => {
+    if (!moveFor) return
+    await moveToProject(moveFor.id, projectId)
+    setMoveFor(null)
+    // refresh project→doc map so the sidebar counts/filters reflect the move
+    const map: Record<string, Set<string>> = {}
+    await Promise.all(projects.map(async (p) => { map[p.id] = new Set(await projectDocIds(p.id)) }))
+    setProjDocs(map)
+  }
+
   const openShare = async (d: DocMeta) => {
     setShareFor(d)
     setShares(await listShares(d.id))
@@ -242,7 +288,9 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
 
   const NAV: { id: string; label: string }[] = [
     { id: 'all', label: '全部' },
+    { id: 'starred', label: '收藏' },
     ...KINDS.map((k) => ({ id: k.id, label: k.label })),
+    { id: 'trash', label: '回收站' },
   ]
   const filterLabel =
     filter === 'all'
@@ -372,28 +420,51 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
                       if (e.key === 'Enter') openDoc(d, onOpenEditor)
                     }}
                   >
-                    <DocThumb doc={d} />
+                    <div className="home-doc-thumb-wrap">
+                      <DocThumb doc={d} />
+                      {filter !== 'trash' && (
+                        <button
+                          className={`home-doc-star${d.starred ? ' on' : ''}`}
+                          title={d.starred ? '取消收藏' : '收藏'}
+                          onClick={(e) => { e.stopPropagation(); void toggleStar(d) }}
+                        >
+                          {d.starred ? '★' : '☆'}
+                        </button>
+                      )}
+                    </div>
                     <span className="home-doc-title">{d.title}</span>
                     <span className="home-doc-time">{relTime(d.updated)}</span>
                     <div className="home-doc-actions">
-                      <button
-                        title="下载"
-                        onClick={(e) => { e.stopPropagation(); void downloadDocument(d.id, d.title) }}
-                      >
-                        下载
-                      </button>
-                      <button
-                        title="历史版本"
-                        onClick={(e) => { e.stopPropagation(); void openVersions(d) }}
-                      >
-                        历史
-                      </button>
-                      <button
-                        title="分享只读链接"
-                        onClick={(e) => { e.stopPropagation(); void openShare(d) }}
-                      >
-                        分享
-                      </button>
+                      {filter === 'trash' ? (
+                        <>
+                          <button title="恢复" onClick={(e) => { e.stopPropagation(); void doRestoreDoc(d) }}>
+                            恢复
+                          </button>
+                          <button className="home-doc-danger" title="彻底删除" onClick={(e) => { e.stopPropagation(); void doPurge(d) }}>
+                            彻底删除
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button title="下载" onClick={(e) => { e.stopPropagation(); void downloadDocument(d.id, d.title) }}>
+                            下载
+                          </button>
+                          <button title="历史版本" onClick={(e) => { e.stopPropagation(); void openVersions(d) }}>
+                            历史
+                          </button>
+                          <button title="分享只读链接" onClick={(e) => { e.stopPropagation(); void openShare(d) }}>
+                            分享
+                          </button>
+                          {projects.length > 0 && (
+                            <button title="移动到项目" onClick={(e) => { e.stopPropagation(); setMoveFor(d) }}>
+                              移动
+                            </button>
+                          )}
+                          <button className="home-doc-danger" title="删除到回收站" onClick={(e) => { e.stopPropagation(); void doTrash(d) }}>
+                            删除
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 )
@@ -465,6 +536,27 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
             <button className="home-send home-share-new" onClick={() => void doCreateShare()}>
               + 新建只读链接
             </button>
+          </div>
+        </div>
+      )}
+
+      {moveFor && (
+        <div className="home-modal-backdrop" onClick={() => setMoveFor(null)}>
+          <div className="home-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="home-modal-head">
+              <span className="home-modal-title">移动到项目 · {moveFor.title}</span>
+              <button className="home-modal-close" onClick={() => setMoveFor(null)}>✕</button>
+            </div>
+            <ul className="home-ver-list">
+              {projects.map((p) => (
+                <li key={p.id} className="home-ver">
+                  <span className="home-ver-info">{p.name}</span>
+                  <button className="home-ver-restore" onClick={() => void doMove(p.id)}>
+                    移动到此
+                  </button>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       )}

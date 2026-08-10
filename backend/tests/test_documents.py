@@ -67,6 +67,30 @@ def test_thumbnail_put_get_missing():
         assert c.put(f"/documents/{did}/thumb", content=b"x", headers=hb).status_code == 404
 
 
+def test_star_soft_delete_restore_purge():
+    with TestClient(main.app) as c:
+        h = _auth(c, "flags@x.com")
+        did = c.post("/documents", params={"title": "f.docx"}, content=b"x", headers=h).json()["id"]
+
+        # star it → appears starred in the list
+        assert c.patch(f"/documents/{did}", json={"starred": True}, headers=h).json()["starred"] is True
+        assert any(d["id"] == did and d["starred"] for d in c.get("/documents", headers=h).json())
+
+        # soft-delete → gone from default list, present in trash
+        assert c.delete(f"/documents/{did}", headers=h).status_code == 204
+        assert all(d["id"] != did for d in c.get("/documents", headers=h).json())
+        assert any(d["id"] == did for d in c.get("/documents", params={"trashed": "true"}, headers=h).json())
+
+        # restore → back in default list
+        assert c.post(f"/documents/{did}/restore-doc", headers=h).status_code == 204
+        assert any(d["id"] == did for d in c.get("/documents", headers=h).json())
+
+        # purge → gone everywhere; blob 404s
+        assert c.delete(f"/documents/{did}/purge", headers=h).status_code == 204
+        assert all(d["id"] != did for d in c.get("/documents", headers=h).json())
+        assert c.get(f"/documents/{did}/blob", headers=h).status_code == 404
+
+
 def test_blob_size_limit():
     from app.settings import MAX_BLOB_MB
 

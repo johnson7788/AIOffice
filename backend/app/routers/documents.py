@@ -1,5 +1,5 @@
 """Document metadata + blob versions. All access is scoped to the caller's org."""
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import Response
@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import storage
 from ..db import get_session
 from ..locks import require_writable
-from ..models import Document, DocumentVersion, User
+from ..models import DocFlags, Document, DocumentVersion, User
 from ..security import get_current_user
 from ..settings import MAX_BLOB_MB, MAX_DOCS_PER_ORG, MAX_STORAGE_MB_PER_ORG
 
@@ -29,6 +29,11 @@ class DocumentOut(BaseModel):
     title: str
     type: str
     updated: datetime
+    starred: bool = False
+
+
+class FlagsIn(BaseModel):
+    starred: bool
 
 
 class VersionOut(BaseModel):
@@ -85,14 +90,33 @@ async def list_documents(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
     limit: int = 50,
+    trashed: bool = False,
 ) -> list[DocumentOut]:
-    rows = await session.scalars(
-        select(Document)
-        .where(Document.org_id == user.org_id)
+    # LEFT JOIN flags so docs without a flags row still list (starred=False).
+    # Default view hides soft-deleted docs; trashed=true shows only those.
+    rows = await session.execute(
+        select(Document, DocFlags)
+        .outerjoin(DocFlags, DocFlags.doc_id == Document.id)
+        .where(
+            Document.org_id == user.org_id,
+            DocFlags.deleted_at.isnot(None) if trashed else _not_deleted(),
+        )
         .order_by(Document.updated.desc())
         .limit(limit)
     )
-    return [DocumentOut(id=d.id, title=d.title, type=d.type, updated=d.updated) for d in rows]
+    return [
+        DocumentOut(
+            id=d.id, title=d.title, type=d.type, updated=d.updated,
+            starred=bool(f and f.starred),
+        )
+        for d, f in rows.all()
+    ]
+
+
+def _not_deleted():
+    from sqlalchemy import or_
+
+    return or_(DocFlags.deleted_at.is_(None), DocFlags.doc_id.is_(None))
 
 
 @router.post("", response_model=DocumentOut, status_code=status.HTTP_201_CREATED)
@@ -214,3 +238,68 @@ async def get_thumb(
     except Exception:  # missing thumb (local FileNotFoundError / S3 NoSuchKey)
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no thumbnail")
     return Response(content=data, media_type="image/png", headers={"Cache-Control": "no-cache"})
+
+
+# ── Management flags: star + soft-delete (via the DocFlags side table) ──────
+async def _flags(doc: Document, session: AsyncSession) -> DocFlags:
+    f = await session.get(DocFlags, doc.id)
+    if f is None:
+        f = DocFlags(doc_id=doc.id, org_id=doc.org_id)
+        session.add(f)
+    return f
+
+
+@router.patch("/{doc_id}", response_model=DocumentOut)
+async def set_flags(
+    doc_id: str,
+    body: FlagsIn,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> DocumentOut:
+    doc = await _get_owned(doc_id, user, session)
+    f = await _flags(doc, session)
+    f.starred = body.starred
+    await session.commit()
+    return DocumentOut(id=doc.id, title=doc.title, type=doc.type, updated=doc.updated, starred=f.starred)
+
+
+@router.delete("/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def soft_delete(
+    doc_id: str,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    doc = await _get_owned(doc_id, user, session)
+    f = await _flags(doc, session)
+    f.deleted_at = datetime.now(timezone.utc)
+    await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/{doc_id}/restore-doc", status_code=status.HTTP_204_NO_CONTENT)
+async def restore_doc(
+    doc_id: str,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    doc = await _get_owned(doc_id, user, session)
+    f = await _flags(doc, session)
+    f.deleted_at = None
+    await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete("/{doc_id}/purge", status_code=status.HTTP_204_NO_CONTENT)
+async def purge_doc(
+    doc_id: str,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    doc = await _get_owned(doc_id, user, session)
+    f = await session.get(DocFlags, doc.id)
+    if f is not None:
+        await session.delete(f)
+    await session.delete(doc)  # cascade deletes its versions
+    await session.commit()
+    # ponytail: blobs left in storage (orphaned); add a storage GC sweep if it matters
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

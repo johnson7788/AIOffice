@@ -85,6 +85,18 @@ class Share(Base):
     created: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
+class DocFlags(Base):
+    """Per-document management flags (star + soft-delete). A separate table so
+    adding these needs no ALTER on documents — create_all makes it on existing
+    DBs (no Alembic). One row per doc, created lazily on first flag write."""
+
+    __tablename__ = "doc_flags"
+    doc_id: Mapped[str] = mapped_column(ForeignKey("documents.id"), primary_key=True)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), index=True)
+    starred: Mapped[bool] = mapped_column(Boolean, default=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class Project(Base):
     __tablename__ = "projects"
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)

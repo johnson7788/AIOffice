@@ -207,11 +207,35 @@ export interface DocMeta {
   title: string
   type: string
   updated: string
+  starred?: boolean
 }
-/** recent documents with titles, for the Home sidebar */
-export async function listDocuments(): Promise<DocMeta[]> {
-  const r = await authFetch('/documents')
+/** recent documents with titles, for the Home sidebar. trashed=true → recycle bin. */
+export async function listDocuments(trashed = false): Promise<DocMeta[]> {
+  const r = await authFetch(`/documents${trashed ? '?trashed=true' : ''}`)
   return r.ok ? ((await r.json()) as DocMeta[]) : []
+}
+export async function setStar(docId: string, starred: boolean): Promise<boolean> {
+  const r = await authFetch(`/documents/${docId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ starred }),
+  })
+  return r.ok
+}
+/** soft-delete → recycle bin (recoverable) */
+export async function trashDocument(docId: string): Promise<boolean> {
+  return (await authFetch(`/documents/${docId}`, { method: 'DELETE' })).ok
+}
+export async function restoreDocument(docId: string): Promise<boolean> {
+  return (await authFetch(`/documents/${docId}/restore-doc`, { method: 'POST' })).ok
+}
+/** permanently delete (from the recycle bin) */
+export async function purgeDocument(docId: string): Promise<boolean> {
+  return (await authFetch(`/documents/${docId}/purge`, { method: 'DELETE' })).ok
+}
+/** move a doc to a project (backend M3 /projects/move-file; filePath == doc id) */
+export async function moveToProject(docId: string, projectId: string): Promise<void> {
+  await projectApi.moveFile({ filePath: docId, projectId })
 }
 
 const desktop: DesktopApi = {
