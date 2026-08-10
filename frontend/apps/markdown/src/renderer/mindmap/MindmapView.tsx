@@ -17,12 +17,29 @@ export function MindmapView({ editor }: { editor: Editor | null }) {
 
   // create the markmap once, tear down on unmount
   useEffect(() => {
-    if (!svgRef.current) return
-    const mm = Markmap.create(svgRef.current)
+    const svg = svgRef.current
+    if (!svg) return
+    const mm = Markmap.create(svg)
     mmRef.current = mm
+    // markmap's d3-zoom reads svg.width/height.baseVal.value — a relative (%)
+    // length throws "Could not resolve relative length". Mirror the flex-sized
+    // box into absolute px width/height attributes so the zoom math resolves.
+    const sync = () => {
+      const box = svg.parentElement
+      const w = box?.clientWidth ?? 0
+      const h = box?.clientHeight ?? 0
+      if (w > 0 && h > 0) {
+        svg.setAttribute('width', String(w))
+        svg.setAttribute('height', String(h))
+      }
+    }
+    sync()
     // refit when the container resizes (view switch outline⇄split⇄mindmap, window)
-    const ro = new ResizeObserver(() => void mm.fit())
-    if (svgRef.current.parentElement) ro.observe(svgRef.current.parentElement)
+    const ro = new ResizeObserver(() => {
+      sync()
+      void mm.fit()
+    })
+    if (svg.parentElement) ro.observe(svg.parentElement)
     return () => {
       ro.disconnect()
       mm.destroy()

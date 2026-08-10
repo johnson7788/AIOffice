@@ -29,6 +29,20 @@ const TOKEN_KEY = 'aioffice_token'
 // the server document id backing the open editor (null = untitled)
 let currentId: string | null = null
 
+// Dev cross-origin handoff: the docs Home appends ?tok= when navigating here
+// (separate vite origins don't share localStorage). Adopt it, then strip only
+// the tok param so ?doc=/?gen=/?view= survive for the App boot. No-op in prod
+// (same origin → token already present, no ?tok appended).
+;(() => {
+  const p = new URLSearchParams(location.search)
+  const tok = p.get('tok')
+  if (!tok) return
+  localStorage.setItem(TOKEN_KEY, tok)
+  p.delete('tok')
+  const q = p.toString()
+  history.replaceState(null, '', location.pathname + (q ? `?${q}` : ''))
+})()
+
 function getToken(): string {
   const t = localStorage.getItem(TOKEN_KEY)
   if (!t) throw new Error('not authenticated')
