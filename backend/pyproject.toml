@@ -16,6 +16,8 @@ dependencies = [
     "pydantic[email]>=2.9",
     "python-multipart>=0.0.9",
     "boto3>=1.35",
+    "pypdf>=5.1",
+    "pillow>=10.0",  # pypdf needs Pillow to extract embedded images (BSD/HPND-safe, unlike AGPL pymupdf)
 ]
 
 [dependency-groups]

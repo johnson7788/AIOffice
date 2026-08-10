@@ -28,6 +28,9 @@ const TOKEN_KEY = 'aioffice_token'
 
 // the server document id backing the open editor (null = untitled)
 let currentId: string | null = null
+export function getCurrentDocId(): string | null {
+  return currentId
+}
 
 // Dev cross-origin handoff: the docs Home appends ?tok= when navigating here
 // (separate vite origins don't share localStorage). Adopt it, then strip only

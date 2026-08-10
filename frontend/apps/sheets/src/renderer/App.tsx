@@ -1,5 +1,5 @@
 import { ImageGallery } from '@genoffice/ui'
-import { imageSearch } from './web-adapter'
+import { getCurrentDocId, imageSearch } from './web-adapter'
 import {
   absRangeRef,
   activateFormulaClosure,
@@ -3196,6 +3196,7 @@ export function App(): React.JSX.Element {
           >
             <ImageGallery
               search={imageSearch}
+              gallery={{ docId: getCurrentDocId() }}
               onPick={(img) => {
                 setGalleryOpen(false)
                 void insertPictureFromUrl(visualContext(), img.imageUrl, img.title)

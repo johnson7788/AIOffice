@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import type { Editor } from '@tiptap/core'
 import { ImageGallery, ShapePreview, WORDART_PRESETS, wordArtStrokePx } from '@genoffice/ui'
+import { getCurrentDocId } from '../web-adapter'
 import type { ChartDisplay, HeaderFooter, NewChart } from '@genoffice/docx-engine'
 import { EquationGallery, EquationModal } from './EquationModal'
 import { COVER_PRESETS, insertCoverPage, type CoverPreset } from '../editor/cover-pages'
@@ -1191,6 +1192,7 @@ export function InsertTab({
           >
             <ImageGallery
               search={(q, max) => window.desktop.imageSearch(q, max)}
+              gallery={{ docId: getCurrentDocId() }}
               onPick={(img) => {
                 setGalleryOpen(false)
                 void insertImageFromUrl(editor, img.imageUrl, img.title)

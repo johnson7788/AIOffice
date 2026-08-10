@@ -3,6 +3,7 @@ import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
 import type { ChartDisplay, NewChart } from '@genoffice/docx-engine'
 import type { AgentToolCall, AgentToolDef } from '../../shared/ipc'
 import { t } from '../i18n/locale'
+import { extractAssets, getAssetImage, getCurrentDocId, listAssets } from '../web-adapter'
 import { executeCommands, type Command, type CommandEnvelope } from './commands'
 import {
   blockRangePositions,
@@ -135,6 +136,35 @@ export const AGENT_TOOLS: AgentToolDef[] = [
         maxWidthPx: { type: 'integer', description: 'maximum width (px), default 480' },
       },
       required: ['url'],
+    },
+  },
+  {
+    name: 'extract_images',
+    description:
+      "Extract all images embedded in the current document into the user's private image gallery (\"我的图库\"). Returns the extracted images with their asset id and name. Use before insert_asset when the user wants to reuse a picture already in this document.",
+    inputSchema: { type: 'object', properties: {}, required: [] },
+  },
+  {
+    name: 'list_assets',
+    description:
+      "List images in the user's private gallery (uploaded or extracted from documents). Returns id + name for each; pass a query to filter by name. Insert one with insert_asset.",
+    inputSchema: {
+      type: 'object',
+      properties: { query: { type: 'string', description: 'optional name filter' } },
+      required: [],
+    },
+  },
+  {
+    name: 'insert_asset',
+    description:
+      'Insert an image from the private gallery into the document (at the cursor / end). Use an asset id from list_assets or extract_images.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'gallery asset id' },
+        maxWidthPx: { type: 'integer', description: 'maximum width (px), default 480' },
+      },
+      required: ['id'],
     },
   },
   {
@@ -284,6 +314,50 @@ function imageSizeOf(dataUrl: string): Promise<{ width: number; height: number }
 }
 
 /** Async tools: web search / image search / insert web image. */
+// Shared image-insert path for insert_image (web) and insert_asset (gallery):
+// decode → scale to maxWidthPx → write a protected image block. The fetch may
+// take long, so only our own write marks the doc seen (user edits meanwhile keep
+// the freshness baseline stale). Checked right before the write, no async gap after.
+async function insertFetchedImage(
+  editor: Editor,
+  fetched: { base64: string; mime: string },
+  label: string,
+  call: AgentToolCall,
+  signal: AbortSignal | undefined,
+  summary: string,
+): Promise<ToolExecution> {
+  const dataUrl = `data:${fetched.mime};base64,${fetched.base64}`
+  const maxW = Number(call.input.maxWidthPx) || 480
+  try {
+    const natural = await imageSizeOf(dataUrl)
+    if (signal?.aborted) return fail(summary, 'stopped by the user; the image was not inserted')
+    const scale = Math.min(1, maxW / natural.width)
+    const w = Math.round(natural.width * scale)
+    const h = Math.round(natural.height * scale)
+    const userEditedDuringFetch = editedExternally(editor)
+    editor
+      .chain()
+      .focus()
+      .insertContent({
+        type: 'docProtected',
+        attrs: {
+          docxIndex: null,
+          blockType: 'image',
+          label,
+          imageDataUrl: dataUrl,
+          imageWidthPx: w,
+          imageHeightPx: h,
+          genImage: { base64: fetched.base64, mime: fetched.mime, widthPx: w, heightPx: h },
+        },
+      })
+      .run()
+    if (!userEditedDuringFetch) markDocSeen(editor)
+    return { output: `Inserted the image (${w}×${h}px).`, mutated: true, summary }
+  } catch {
+    return fail(summary, 'the image could not be decoded')
+  }
+}
+
 async function executeAsyncTool(
   editor: Editor,
   call: AgentToolCall,
@@ -342,44 +416,38 @@ async function executeAsyncTool(
         return fail(t('aiSumInsertImage'), 'stopped by the user; the image was not inserted')
       if (!fetched)
         return fail(t('aiSumInsertImage'), 'download failed (the image may not be accessible)')
-      const dataUrl = `data:${fetched.mime};base64,${fetched.base64}`
-      const maxW = Number(call.input.maxWidthPx) || 480
-      try {
-        const natural = await imageSizeOf(dataUrl)
-        if (signal?.aborted)
-          return fail(t('aiSumInsertImage'), 'stopped by the user; the image was not inserted')
-        const scale = Math.min(1, maxW / natural.width)
-        const w = Math.round(natural.width * scale)
-        const h = Math.round(natural.height * scale)
-        // The download can take long: user edits made meanwhile must keep the
-        // freshness baseline stale, so only our own insertion may mark the doc
-        // seen. Checked right before the write — there is no async gap after.
-        const userEditedDuringFetch = editedExternally(editor)
-        editor
-          .chain()
-          .focus()
-          .insertContent({
-            type: 'docProtected',
-            attrs: {
-              docxIndex: null,
-              blockType: 'image',
-              label: 'Image (web)',
-              imageDataUrl: dataUrl,
-              imageWidthPx: w,
-              imageHeightPx: h,
-              genImage: { base64: fetched.base64, mime: fetched.mime, widthPx: w, heightPx: h },
-            },
-          })
-          .run()
-        if (!userEditedDuringFetch) markDocSeen(editor)
-        return {
-          output: `Inserted the image (${w}×${h}px).`,
-          mutated: true,
-          summary: t('aiSumInsertWebImage'),
-        }
-      } catch {
-        return fail(t('aiSumInsertImage'), 'the image could not be decoded')
+      return insertFetchedImage(editor, fetched, 'Image (web)', call, signal, t('aiSumInsertWebImage'))
+    }
+    case 'extract_images': {
+      const docId = getCurrentDocId()
+      if (!docId) return fail('提取图片', 'save the document first (extraction needs a stored file)')
+      const assets = await extractAssets(docId)
+      const lines = assets.map((a, i) => `${i + 1}. ${a.name} (id: ${a.id})`)
+      return {
+        output: assets.length
+          ? `Extracted ${assets.length} image(s) into the gallery:\n${lines.join('\n')}`
+          : 'No embedded images found in this document.',
+        mutated: false,
+        summary: `提取了 ${assets.length} 张图片`,
       }
+    }
+    case 'list_assets': {
+      const q = String(call.input.query ?? '').trim()
+      const assets = await listAssets(q)
+      const lines = assets.map((a, i) => `${i + 1}. ${a.name} (id: ${a.id}, from: ${a.source})`)
+      return {
+        output: lines.join('\n') || '(gallery is empty)',
+        mutated: false,
+        summary: `图库：${assets.length} 张`,
+      }
+    }
+    case 'insert_asset': {
+      const id = String(call.input.id ?? '').trim()
+      if (!id) return fail('插入图库图片', 'id must not be empty')
+      const fetched = await getAssetImage(id)
+      if (signal?.aborted) return fail('插入图库图片', 'stopped by the user; nothing was inserted')
+      if (!fetched) return fail('插入图库图片', 'asset not found (check the id from list_assets)')
+      return insertFetchedImage(editor, fetched, 'Image (gallery)', call, signal, '插入图库图片')
     }
     default:
       return fail(t('aiSumUnknownTool'), call.name)
@@ -404,7 +472,14 @@ export function executeTool(
   // synchronously (doesn't break existing tests). No settle here: marking the doc
   // seen after the long download would baptize user edits made meanwhile —
   // insert_image maintains the baseline itself right at its synchronous write.
-  if (call.name === 'web_search' || call.name === 'image_search' || call.name === 'insert_image') {
+  if (
+    call.name === 'web_search' ||
+    call.name === 'image_search' ||
+    call.name === 'insert_image' ||
+    call.name === 'extract_images' ||
+    call.name === 'list_assets' ||
+    call.name === 'insert_asset'
+  ) {
     return executeAsyncTool(editor, call, signal)
   }
   return settle(executeSyncTool(editor, call, numIds, track))

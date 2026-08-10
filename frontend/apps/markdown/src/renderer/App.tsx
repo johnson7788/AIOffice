@@ -22,7 +22,7 @@ import { MindmapView } from './mindmap/MindmapView'
 import { exportDocxBytes } from './export/docxExport'
 import { buildPrintHtml } from './export/printHtml'
 import { resolveImageSrc } from './editor/localImage'
-import { imageSearch, putThumb } from './web-adapter'
+import { getCurrentDocId, imageSearch, putThumb } from './web-adapter'
 import { ImageGallery, domToThumbPng } from '@genoffice/ui'
 import type { ExportFormat, SaveMode } from '../shared/ipc'
 
@@ -467,6 +467,7 @@ export default function App() {
           >
             <ImageGallery
               search={imageSearch}
+              gallery={{ docId: getCurrentDocId() }}
               onPick={(img) => {
                 setGalleryOpen(false)
                 insertImageUrl(img.imageUrl)

@@ -4,6 +4,7 @@
  * refs and state never go stale.
  */
 import { columnLabel, parseAddress, parseRange } from '../domain/cell-address'
+import { dataUrlParts } from './web-adapter'
 import {
   hasNumericYearAxis,
   recommendCharts,
@@ -673,12 +674,16 @@ export async function insertPictureFromUrl(
     ctx.setMessage(t('appPictureNeedsFile'))
     return
   }
-  const res = await fetch(`/ai/fetch-image?url=${encodeURIComponent(url)}`).catch(() => null)
-  if (!res?.ok) {
-    ctx.setMessage(t('appCannotReadImage'))
-    return
+  let parts = dataUrlParts(url) // gallery/AI can pass a data: URL directly (no proxy round-trip)
+  if (!parts) {
+    const res = await fetch(`/ai/fetch-image?url=${encodeURIComponent(url)}`).catch(() => null)
+    if (!res?.ok) {
+      ctx.setMessage(t('appCannotReadImage'))
+      return
+    }
+    parts = (await res.json()) as { base64: string; mime: string }
   }
-  const { base64, mime } = (await res.json()) as { base64: string; mime: string }
+  const { base64, mime } = parts
   const dataUrl = `data:${mime};base64,${base64}`
   const image = new Image()
   image.onload = () =>

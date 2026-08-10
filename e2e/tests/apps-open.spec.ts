@@ -19,8 +19,10 @@ test('register, logout, login, then open the seeded Word doc in the docs editor'
   await loginViaUi(page, mail)
   await expect(page.locator('.home')).toBeVisible()
 
-  // the .docx seed opens in-app (sessionStorage handoff) — no navigation
-  await page.locator('.home-recent-item', { hasText: 'Word 示例' }).click()
+  // the .docx seed opens in-app (sessionStorage handoff) — no navigation.
+  // Single-click selects the card (P2.3 preview panel); its 打开 button opens it.
+  await page.locator('.home-doc', { hasText: 'Word 示例' }).click()
+  await page.locator('.home-preview-open').click()
   const editor = page.locator('.editor-scroll .ProseMirror')
   await expect(editor).toBeVisible({ timeout: OPEN_TIMEOUT })
   // real seeded content parsed by docx-engine, not a blank doc
@@ -30,7 +32,8 @@ test('register, logout, login, then open the seeded Word doc in the docs editor'
 
 test('open the seeded PPT in the slides editor', async ({ page }) => {
   await registerViaUi(page)
-  await page.locator('.home-recent-item', { hasText: 'PPT' }).click()
+  await page.locator('.home-doc', { hasText: 'PPT' }).click()
+  await page.locator('.home-preview-open').click()
   await page.waitForURL(/\/slides\//, { timeout: 15_000 })
 
   // deck loaded: booting screen gone, thumbnail sidebar rendered
@@ -44,7 +47,8 @@ test('open the seeded PPT in the slides editor', async ({ page }) => {
 
 test('open the seeded PDF in the pdf editor', async ({ page }) => {
   await registerViaUi(page)
-  await page.locator('.home-recent-item', { hasText: 'PDF' }).click()
+  await page.locator('.home-doc', { hasText: 'PDF' }).click()
+  await page.locator('.home-preview-open').click()
   await page.waitForURL(/\/pdf\//, { timeout: 15_000 })
 
   // pdf.js parsed the 2-page seed: sidebar thumbnails rendered
@@ -55,7 +59,8 @@ test('open the seeded PDF in the pdf editor', async ({ page }) => {
 
 test('open the seeded Excel in the sheets editor', async ({ page }) => {
   await registerViaUi(page)
-  await page.locator('.home-recent-item', { hasText: '表格示例' }).click()
+  await page.locator('.home-doc', { hasText: '表格示例' }).click()
+  await page.locator('.home-preview-open').click()
   await page.waitForURL(/\/sheets\//, { timeout: 15_000 })
 
   // Univer mounts its surface once the xlsx (sidecar-parsed) workbook is open

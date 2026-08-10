@@ -79,6 +79,7 @@ import { FIT_WIDTH, PX_PER_INCH } from './app-constants'
 import * as fileActions from './file-actions'
 import * as clipboardActions from './clipboard-actions'
 import * as insertActions from './insert-actions'
+import { getCurrentDocId } from './web-adapter'
 import * as animationActions from './animation-actions'
 import * as showActions from './show-actions'
 import * as slideActions from './slide-actions'
@@ -3276,6 +3277,7 @@ export function App() {
           >
             <ImageGallery
               search={(q, max) => window.slidesApi.imageSearch(q, max)}
+              gallery={{ docId: getCurrentDocId() }}
               onPick={(img) => {
                 setShowGallery(false)
                 void insertOnlineImage(img)

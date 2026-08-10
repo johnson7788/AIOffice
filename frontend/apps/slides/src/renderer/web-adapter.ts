@@ -263,6 +263,18 @@ async function getJson<T>(path: string): Promise<T> {
   return (await r.json()) as T
 }
 
+/** data:<mime>;base64,<b64> → {base64,mime}, else null (gallery/AI data URLs skip the proxy). */
+function dataUrlParts(url: string): { base64: string; mime: string } | null {
+  const m = /^data:([^;,]+);base64,(.*)$/s.exec(url)
+  return m ? { mime: m[1], base64: m[2] } : null
+}
+
+/** open deck's server doc id (session.path), or null when unsaved — scopes the
+ * image gallery's "从文档提取" to the current deck. */
+export function getCurrentDocId(): string | null {
+  return getSession()?.path || null
+}
+
 // ── auth + storage (shared shape with docs adapter) ──────────────────────
 const TOKEN_KEY = 'aioffice_token'
 // Dev cross-origin handoff: the docs Home appends ?tok= when navigating here
@@ -1873,9 +1885,11 @@ const slidesApi: SlidesApi = {
     if (!s) return null
     const slide = s.opened.deck.slides[op.slideIndex]
     if (!slide) return null
-    const img = await getJson<{ base64: string; mime: string }>(
-      `/ai/fetch-image?url=${encodeURIComponent(op.url)}`,
-    ).catch(() => null)
+    const img =
+      dataUrlParts(op.url) ??
+      (await getJson<{ base64: string; mime: string }>(
+        `/ai/fetch-image?url=${encodeURIComponent(op.url)}`,
+      ).catch(() => null))
     if (!img) return null
     const ext = img.mime.includes('png')
       ? 'png'

@@ -91,6 +91,60 @@ test('unauthenticated document access is rejected (401)', async ({ request }) =>
   expect(r.status()).toBe(401)
 })
 
+// 1×1 transparent PNG — smallest valid image the gallery will accept.
+const PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+  'base64',
+)
+
+test('gallery: upload → list → blob → delete', async ({ request }) => {
+  const token = await register(request)
+
+  const up = await request.post('/gallery?name=logo.png', {
+    headers: { ...auth(token), 'Content-Type': 'image/png' },
+    data: PNG,
+  })
+  expect(up.ok(), `upload → ${up.status()}`).toBeTruthy()
+  const asset = (await up.json()) as { id: string; name: string; mime: string }
+  expect(asset.id).toBeTruthy()
+  expect(asset.mime).toBe('image/png')
+
+  const list = await request.get('/gallery', { headers: auth(token) })
+  expect(list.ok()).toBeTruthy()
+  const items = (await list.json()) as Array<{ id: string }>
+  expect(items.some((a) => a.id === asset.id)).toBeTruthy()
+
+  const blob = await request.get(`/gallery/${asset.id}/blob`, { headers: auth(token) })
+  expect(blob.ok()).toBeTruthy()
+  expect(Buffer.from(await blob.body()).equals(PNG)).toBeTruthy()
+
+  const del = await request.delete(`/gallery/${asset.id}`, { headers: auth(token) })
+  expect(del.status()).toBe(204)
+  const after = await request.get('/gallery', { headers: auth(token) })
+  expect(((await after.json()) as Array<{ id: string }>).some((a) => a.id === asset.id)).toBeFalsy()
+})
+
+test('gallery: non-image upload is rejected (400)', async ({ request }) => {
+  const token = await register(request)
+  const r = await request.post('/gallery?name=notes.txt', {
+    headers: { ...auth(token), 'Content-Type': 'text/plain' },
+    data: 'not an image',
+  })
+  expect(r.status()).toBe(400)
+})
+
+test('gallery: tenant isolation on the blob (404)', async ({ request }) => {
+  const owner = await register(request)
+  const up = await request.post('/gallery?name=private.png', {
+    headers: { ...auth(owner), 'Content-Type': 'image/png' },
+    data: PNG,
+  })
+  const { id } = (await up.json()) as { id: string }
+  const intruder = await register(request)
+  const stolen = await request.get(`/gallery/${id}/blob`, { headers: auth(intruder) })
+  expect(stolen.status()).toBe(404)
+})
+
 for (const app of ['/', '/slides/', '/pdf/', '/markdown/', '/sheets/']) {
   test(`static SPA served at ${app}`, async ({ request }) => {
     const r = await request.get(app)

@@ -97,6 +97,21 @@ class DocFlags(Base):
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class Asset(Base):
+    """A user's private image (uploaded, or extracted from a document). Org-scoped
+    like everything else. Blob at org/{org}/asset/{id}. source = 'upload' or
+    'doc:<docId>'. Separate table → create_all-safe on existing DBs (no Alembic)."""
+
+    __tablename__ = "assets"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), index=True)
+    name: Mapped[str] = mapped_column(String(500))
+    mime: Mapped[str] = mapped_column(String(64))
+    size: Mapped[int] = mapped_column(Integer, default=0)
+    source: Mapped[str] = mapped_column(String(64), default="upload")  # upload | doc:<docId>
+    created: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
 class Project(Base):
     __tablename__ = "projects"
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)

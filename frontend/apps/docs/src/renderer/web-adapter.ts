@@ -105,6 +105,13 @@ async function getJson<T>(path: string): Promise<T> {
   return (await r.json()) as T
 }
 
+/** Split a `data:<mime>;base64,<b64>` URL into the fetchImage return shape, or
+ * null if not a base64 data URL. Lets gallery/AI inserts skip the proxy fetch. */
+export function dataUrlParts(url: string): { base64: string; mime: string } | null {
+  const m = /^data:([^;,]+);base64,(.*)$/s.exec(url)
+  return m ? { mime: m[1], base64: m[2] } : null
+}
+
 // ── auth ──────────────────────────────────────────────────────────────────
 // The Shell gates the app behind Login (see shell/), so a token is present
 // before any authed call runs. On a 401 the token is cleared and the page
@@ -189,6 +196,41 @@ function filenameFromDisposition(cd: string | null, fallback: string): string {
   return m ? m[1] : fallback
 }
 
+// the doc currently open in this tab (set on open/save) — lets the image gallery
+// scope "从文档提取" to it. null when unsaved/blank.
+let currentDocId: string | null = null
+export function getCurrentDocId(): string | null {
+  return currentDocId
+}
+
+// ── private image gallery (/gallery) — shared by the UI and the agent tools ──
+export interface AssetMeta {
+  id: string
+  name: string
+  mime: string
+  size: number
+  source: string
+}
+/** list gallery images; optional q filters by name. */
+export async function listAssets(q = ''): Promise<AssetMeta[]> {
+  const r = await authFetch(`/gallery${q.trim() ? `?q=${encodeURIComponent(q.trim())}` : ''}`)
+  return r.ok ? ((await r.json()) as AssetMeta[]) : []
+}
+/** extract embedded images from a document into the gallery; returns the new assets. */
+export async function extractAssets(docId: string): Promise<AssetMeta[]> {
+  const r = await authFetch(`/gallery/extract-from/${docId}`, { method: 'POST' })
+  return r.ok ? ((await r.json()) as AssetMeta[]) : []
+}
+/** fetch a gallery asset's bytes as {base64,mime} (authed → for inserting). */
+export async function getAssetImage(id: string): Promise<{ base64: string; mime: string } | null> {
+  const r = await authFetch(`/gallery/${id}/blob`)
+  if (!r.ok) return null
+  const buf = new Uint8Array(await r.arrayBuffer())
+  let bin = ''
+  for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000))
+  return { base64: btoa(bin), mime: r.headers.get('Content-Type') || 'image/png' }
+}
+
 async function createDocument(
   title: string,
   data: ArrayBuffer,
@@ -199,6 +241,7 @@ async function createDocument(
   })
   if (!r.ok) return { ok: false, error: `HTTP ${r.status}` }
   const { id } = (await r.json()) as { id: string }
+  currentDocId = id
   return { ok: true, path: id }
 }
 
@@ -254,6 +297,7 @@ const desktop: DesktopApi = {
     if (!r.ok) return null
     const data = await r.arrayBuffer()
     const name = filenameFromDisposition(r.headers.get('Content-Disposition'), id)
+    currentDocId = id
     return { path: id, name, data, hash: await sha256Hex(data) }
   },
   // Home stashes the doc id here before switching to the editor view
@@ -269,6 +313,7 @@ const desktop: DesktopApi = {
   // save an existing server document: uploads a new version
   saveDocx: async (path, data) => {
     const r = await authFetch(`/documents/${path}/blob`, { method: 'PUT', body: data })
+    if (r.ok) currentDocId = path
     return r.ok ? { ok: true } : { ok: false, error: `HTTP ${r.status}` }
   },
   writeRecoveryCopy: async () => ({ ok: true }),
@@ -321,10 +366,13 @@ const desktop: DesktopApi = {
     getJson(`/ai/image-search?query=${encodeURIComponent(query)}&max=${maxResults ?? 8}`).catch(
       () => ({ images: [], method: 'error', error: 'search unavailable' }),
     ) as ReturnType<DesktopApi['imageSearch']>,
-  fetchImage: async (url) =>
-    getJson<{ base64: string; mime: string }>(
+  fetchImage: async (url) => {
+    const d = dataUrlParts(url) // gallery/AI can pass a data: URL directly (no proxy round-trip)
+    if (d) return d
+    return getJson<{ base64: string; mime: string }>(
       `/ai/fetch-image?url=${encodeURIComponent(url)}`,
-    ).catch(() => null),
+    ).catch(() => null)
+  },
 
   pickAttachments: async () => null,
   addAttachmentPaths: async () => ({ accepted: [], rejected: [] }),

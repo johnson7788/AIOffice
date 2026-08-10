@@ -129,6 +129,12 @@ async function getJson<T>(path: string): Promise<T> {
   if (!r.ok) throw new Error(`HTTP ${r.status}`)
   return (await r.json()) as T
 }
+
+/** data:<mime>;base64,<b64> → {base64,mime}, else null (gallery/AI data URLs skip the proxy). */
+export function dataUrlParts(url: string): { base64: string; mime: string } | null {
+  const m = /^data:([^;,]+);base64,(.*)$/s.exec(url)
+  return m ? { mime: m[1], base64: m[2] } : null
+}
 function filenameFromDisposition(cd: string | null, fallback: string): string {
   const star = cd?.match(/filename\*=(?:UTF-8'')?([^;]+)/i)
   if (star) { try { return decodeURIComponent(star[1].replace(/"/g, '')) } catch { /* fall through */ } }
@@ -201,6 +207,12 @@ interface Session {
   sheetNames: Map<string, string>
 }
 let session: Session | null = null
+
+/** open workbook's server doc id, or null when unsaved — scopes the image
+ * gallery's "从文档提取" to the current workbook. */
+export function getCurrentDocId(): string | null {
+  return session?.docId ?? null
+}
 
 function ownSheetNames(open: { sheets: Array<{ id: string; name: string }> }): Map<string, string> {
   return new Map(open.sheets.map((s) => [s.id, s.name]))

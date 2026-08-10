@@ -24,6 +24,7 @@ export default defineConfig(({ command }) => ({
       '/auth': { target: BACKEND, changeOrigin: true },
       '/documents': { target: BACKEND, changeOrigin: true },
       '/projects': { target: BACKEND, changeOrigin: true },
+      '/gallery': { target: BACKEND, changeOrigin: true },
       '/files': { target: BACKEND, changeOrigin: true },
     },
   },
