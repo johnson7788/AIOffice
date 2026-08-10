@@ -1,6 +1,6 @@
 # Pagination parity report (F2: line-level pagination + Word page-break constraints)
 
-Generated at: 2026-08-10T08:35:11.148Z
+Generated at: 2026-08-10T12:52:42.494Z
 Baseline source: LibreOffice headless (coarse baseline) + real Word for Mac (precise baseline, 25 docs)
 
 ## Overview

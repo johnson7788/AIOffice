@@ -75,3 +75,32 @@ Agent 仍 100% 客户端；后端只做存储/提取/鉴权，无沙箱、无服
 - **A2**：`extract-from`（zipfile 提取 office + pypdf 提取 pdf）。
 - **A3**：ImageGallery 我的图库 UI（上传 + 从文档提取 + 插入）。
 - **A4**：客户端 Agent asset 工具（对话控制）。
+
+> 落地更正：实际 API 前缀是 **`/gallery`**（不是 `/assets`）——docs SPA 在 base `/` 下把构建产物发到 `/assets/*.js`，`/assets` 会在 nginx 被静态资源遮蔽。A1–A4 已全部完成。
+
+## A5（新增计划）：首页独立「我的图库」入口
+**用户需求**：首页左侧「思维导图」下面加一个「我的图库」入口，点开后展示所有已有图片，并支持上传 / 从文献（文档）提取图片。当前图库只藏在各 app 插入图片弹窗的 tab 里，缺一个"直接浏览整个图库"的首页入口。
+
+### 范围：只改一个文件，零后端、零新组件（ponytail 复用）
+后端 `/gallery`（list/upload/extract/delete）已就绪，**无需任何后端改动**；共享 `packages/ui/src/ImageGallery.tsx` 已支持上传/提取/删除，**直接复用**。工作全在 `apps/docs/src/renderer/shell/Home.tsx`。
+
+### 改动点 `apps/docs/src/renderer/shell/Home.tsx`
+1. **侧栏入口**：在「+ 思维导图」按钮下方加一个「我的图库」按钮（与现有 kind 按钮同风格）。
+2. **浏览态**：新增 `showGallery: boolean` state。点按钮 `setShowGallery(true)`；渲染时 `showGallery` 为真则用一个全屏/主区容器包住 `<ImageGallery>` 取代常规首页主区（或叠加 modal，二选一，取更省的）。
+3. **浏览模式复用组件**：`ImageGallery` 已有 `gallery={{ docId }}` → 展示"我的图库" tab（列表 + 上传 + 从文档提取 + 删除）。首页无当前文档 → 传 `gallery={{ docId: null }}`（"从文档提取"按钮在 docId 为空时已 disabled，符合预期；用户仍可上传 + 浏览 + 删除）。
+   - **onPick**：首页无编辑器可插入 → onPick 设为空操作（或后续做"下载/预览大图"，先留空）。ponytail：浏览态不做插入，需要时再加。
+   - **onClose**：`setShowGallery(false)` 回到常规首页。
+4. **无新 CSS**：`ImageGallery` 用内联样式；容器复用首页现有 `.home` 布局或一个薄 wrapper。
+
+### 从文献提取的路径说明
+「上传文献提取图片」= 用户先把 PDF/office 文件作为文档上传（现有 `/documents`），在图库里对该文档调 `/gallery/extract-from/{docId}`。首页浏览态 docId 为 null，所以"从文档提取"在**首页入口**默认不可用；真正的按文档提取仍在"打开某文档后的插入弹窗"里可用（A3 已实现）。若要在首页也能选文档提取，需再加一个"选择文档"下拉（延后项，见下）。
+
+### 延后项（勿现在做）
+- 首页图库的"从文档提取"选择器（下拉选已上传文档 → extract-from）。
+- onPick 大图预览 / 下载。
+- 图库项缩略图、按内容 hash 去重（沿用总延后项）。
+
+### 验收
+- 首页侧栏出现「我的图库」，点开展示 `/gallery` 全部图片，可上传、可删除、可返回。
+- docs tsc + build 绿（沿用现有门禁过滤）。
+- e2e（可选）：登录→首页→点「我的图库」→上传 1×1 PNG→列表出现→删除。
