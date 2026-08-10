@@ -661,6 +661,32 @@ export function insertAiShapeVisual(
   queueCtxVisualInstall(ctx, runtime, op.sheetId)
 }
 
+/// Insert an online image (from the gallery): fetch bytes through the backend
+/// proxy, then reuse the picker-based visual pipeline at the active cell.
+export async function insertPictureFromUrl(
+  ctx: VisualActionContext,
+  url: string,
+  name = 'image',
+): Promise<void> {
+  if (!ctx.univerRef.current) return
+  if (!ctx.lazyWorkbookRef.current) {
+    ctx.setMessage(t('appPictureNeedsFile'))
+    return
+  }
+  const res = await fetch(`/ai/fetch-image?url=${encodeURIComponent(url)}`).catch(() => null)
+  if (!res?.ok) {
+    ctx.setMessage(t('appCannotReadImage'))
+    return
+  }
+  const { base64, mime } = (await res.json()) as { base64: string; mime: string }
+  const dataUrl = `data:${mime};base64,${base64}`
+  const image = new Image()
+  image.onload = () =>
+    insertPictureVisual(ctx, dataUrl, mime, `${name}`, image.naturalWidth, image.naturalHeight)
+  image.onerror = () => insertPictureVisual(ctx, dataUrl, mime, `${name}`, 480, 320)
+  image.src = dataUrl
+}
+
 export function handleInsertPicture(ctx: VisualActionContext): void {
   if (!ctx.univerRef.current) return
   if (!ctx.lazyWorkbookRef.current) {

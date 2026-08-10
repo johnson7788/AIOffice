@@ -99,6 +99,31 @@ export async function insertImage(ctx: ActionCtx): Promise<void> {
   ctx.setSelectedIds([r.sourceId])
 }
 
+/** Insert an image chosen from the online gallery (URL fetched through the backend proxy). */
+export async function insertOnlineImage(
+  ctx: ActionCtx,
+  img: { imageUrl: string; width?: number; height?: number },
+): Promise<void> {
+  const { slide, current } = ctx
+  if (!slide) return
+  const wPx = Math.round(slide.widthPx * 0.5)
+  const ratio = img.width && img.height ? img.height / img.width : 3 / 4
+  const hPx = Math.round(wPx * ratio)
+  const r = await window.slidesApi.insertImageUrl({
+    slideIndex: current,
+    url: img.imageUrl,
+    xPx: Math.round((slide.widthPx - wPx) / 2),
+    yPx: Math.round((slide.heightPx - hPx) / 2),
+    wPx,
+    hPx,
+    fitWidthPx: FIT_WIDTH,
+  })
+  if (r) {
+    ctx.applySlide(current, r.slide)
+    ctx.setSelectedIds([r.sourceId])
+  }
+}
+
 export async function insertTable(ctx: ActionCtx, rows: number, cols: number): Promise<void> {
   const { slide, current } = ctx
   if (!slide) return

@@ -53,6 +53,7 @@ import { AnimationPane } from './components/AnimationPane'
 import { AnimPreviewOverlay } from './components/AnimatedSlide'
 import { EquationDialog, HeaderFooterDialog, LinkDialog } from './components/InsertDialogs'
 import { CutoutDialog } from './components/CutoutDialog'
+import { ImageGallery } from '@genoffice/ui'
 import type { WordArtPreset } from '@genoffice/ui'
 import type { ChartPresetDef, IconDef, SmartArtDef } from './insert-presets'
 import { AiOfficeMark, IconAiBeautify, IconAiFactCheck, IconAiImage } from './components/icons'
@@ -297,6 +298,7 @@ export function App() {
     return () => window.clearTimeout(t)
   }, [status])
   const [showThumbs, setShowThumbs] = useState(true)
+  const [showGallery, setShowGallery] = useState(false)
   // ── Thumbnail sidebar width (drag the divider to resize; persisted) ─────────
   const [thumbsW, setThumbsW] = useState(loadThumbsW)
   const thumbsListRef = useRef<HTMLDivElement | null>(null)
@@ -955,6 +957,11 @@ export function App() {
     if (kind) void insertActions.insertShapeAt(ctxRef.current, kind, rect)
   }, [])
   const insertImage = useCallback(() => insertActions.insertImage(ctxRef.current), [])
+  const insertOnlineImage = useCallback(
+    (img: { imageUrl: string; width?: number; height?: number }) =>
+      insertActions.insertOnlineImage(ctxRef.current, img),
+    [],
+  )
 
   const onBackground = useCallback(
     (color: string, allSlides: boolean) =>
@@ -2318,6 +2325,7 @@ export function App() {
         onInsert={(kind) => void insertElement(kind)}
         onPickShape={pickShape}
         onInsertImage={() => void insertImage()}
+        onInsertOnlineImage={() => setShowGallery(true)}
         onBackground={(color, all) => void onBackground(color, all)}
         onApplyTheme={(preset) => void applyThemePreset(preset)}
         onAddSlide={() => void addSlide()}
@@ -3257,6 +3265,25 @@ export function App() {
           onApply={(png) => void applyCutout(png)}
           onCancel={() => setCutoutTarget(null)}
         />
+      )}
+
+      {showGallery && (
+        <div className="modal-backdrop" onClick={() => setShowGallery(false)}>
+          <div
+            className="modal"
+            style={{ width: 720, height: 560, maxWidth: '90vw', maxHeight: '85vh', padding: 0 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ImageGallery
+              search={(q, max) => window.slidesApi.imageSearch(q, max)}
+              onPick={(img) => {
+                setShowGallery(false)
+                void insertOnlineImage(img)
+              }}
+              onClose={() => setShowGallery(false)}
+            />
+          </div>
+        </div>
       )}
 
       {customShowDlgOpen && (

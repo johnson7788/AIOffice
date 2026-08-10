@@ -274,6 +274,18 @@ const api: MarkdownApi = {
   },
 }
 
+/** Online image search for the shared ImageGallery (unauthenticated backend proxy). */
+export async function imageSearch(
+  query: string,
+  maxResults = 24,
+): Promise<{ images: Array<{ title: string; imageUrl: string; sourceUrl?: string; source?: string; width?: number; height?: number }> }> {
+  const r = await fetch(
+    `${API}/ai/image-search?query=${encodeURIComponent(query)}&max=${maxResults}`,
+  ).catch(() => null)
+  if (!r?.ok) return { images: [] }
+  return (await r.json()) as { images: [] }
+}
+
 // ── project/chat persistence (backend: /projects) ──
 async function apiPost<T>(path: string, body: unknown): Promise<T> {
   const r = await authFetch(path, {

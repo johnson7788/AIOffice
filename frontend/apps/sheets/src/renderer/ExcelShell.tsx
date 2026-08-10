@@ -1261,6 +1261,13 @@ function Ribbon({
             symbol="🖼"
             onClick={() => onCommand('insert-picture')}
           />
+          <RibbonButton
+            large
+            label="在线图片"
+            detail="搜索并插入"
+            symbol="🌐"
+            onClick={() => onCommand('insert-online-picture')}
+          />
           <div className="row-stack">
             <span className="styles-row" title={t('appInsertShapeTitle')}>
               <ToolSymbol symbol="◇" />

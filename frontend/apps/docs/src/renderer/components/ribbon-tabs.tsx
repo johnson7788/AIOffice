@@ -188,6 +188,13 @@ export async function insertImageViaDialog(editor: Editor): Promise<void> {
   )
 }
 
+/** Insert an online image (from the gallery): fetch bytes through the backend proxy → data URL. */
+export async function insertImageFromUrl(editor: Editor, url: string, alt = ''): Promise<void> {
+  const img = await window.desktop.fetchImage(url)
+  if (!img) return
+  await insertImageFromDataUrl(editor, `data:${img.mime};base64,${img.base64}`, alt)
+}
+
 /** 5 cm × 3 cm default textbox size in EMU (1 cm = 360000 EMU) */
 const TEXTBOX_WIDTH_EMU = 1800000
 const TEXTBOX_HEIGHT_EMU = 1080000

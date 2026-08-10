@@ -224,6 +224,16 @@ async function toWorkbookFile(
 
 // A blank workbook the sidecar can open (one empty sheet + a minimal
 // stylesheet the gateway can patch). Built once via JSZip.
+/** Online image search for the shared ImageGallery (unauthenticated backend proxy). */
+export async function imageSearch(
+  query: string,
+  maxResults = 24,
+): Promise<{ images: Array<{ title: string; imageUrl: string; sourceUrl?: string; source?: string; width?: number; height?: number }> }> {
+  return getJson<{ images: [] }>(
+    `/ai/image-search?query=${encodeURIComponent(query)}&max=${maxResults}`,
+  ).catch(() => ({ images: [] }))
+}
+
 export async function blankXlsxBytes(): Promise<Uint8Array> {
   const zip = new JSZip()
   zip.file(

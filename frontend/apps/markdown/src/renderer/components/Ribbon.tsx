@@ -28,6 +28,7 @@ interface Props {
   disabled: boolean
   imageEnabled: boolean
   onInsertImage: () => void
+  onInsertOnlineImage: () => void
   frontmatterOpen: boolean
   onToggleFrontmatter: () => void
   aiOpen: boolean
@@ -164,6 +165,7 @@ export function Ribbon({
   disabled,
   imageEnabled,
   onInsertImage,
+  onInsertOnlineImage,
   frontmatterOpen,
   onToggleFrontmatter,
   aiOpen,
@@ -451,6 +453,9 @@ export function Ribbon({
           <IconTable size={ICON} />
         </IconBtn>
         <IconBtn title={t('insertImage')} disabled={off || !imageEnabled} onClick={onInsertImage}>
+          <IconPicture size={ICON} />
+        </IconBtn>
+        <IconBtn title="搜索在线图片并插入" disabled={off} onClick={onInsertOnlineImage}>
           <IconPicture size={ICON} />
         </IconBtn>
         <IconBtn

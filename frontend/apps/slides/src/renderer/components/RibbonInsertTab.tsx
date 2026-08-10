@@ -60,6 +60,7 @@ export function RibbonInsertTab({ rb }: { rb: RibbonTabCtx }) {
     onInsertField,
     onInsertIcon,
     onInsertImage,
+    onInsertOnlineImage,
     onInsertMedia,
     onInsertModel3d,
     onInsertSmartArt,
@@ -223,6 +224,17 @@ export function RibbonInsertTab({ rb }: { rb: RibbonTabCtx }) {
             <IconPicture size={BIG} />
           </span>
           <span>{t('ribbonPicture')}</span>
+        </button>
+        <button
+          className="rb-big"
+          disabled={!hasDoc}
+          onClick={onInsertOnlineImage}
+          title="搜索在线图片并插入"
+        >
+          <span className="rb-big-icon">
+            <IconPicture size={BIG} />
+          </span>
+          <span>在线图片</span>
         </button>
         {dropBig(
           'icons',

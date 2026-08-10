@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import type { Editor } from '@tiptap/core'
-import { ShapePreview, WORDART_PRESETS, wordArtStrokePx } from '@genoffice/ui'
+import { ImageGallery, ShapePreview, WORDART_PRESETS, wordArtStrokePx } from '@genoffice/ui'
 import type { ChartDisplay, HeaderFooter, NewChart } from '@genoffice/docx-engine'
 import { EquationGallery, EquationModal } from './EquationModal'
 import { COVER_PRESETS, insertCoverPage, type CoverPreset } from '../editor/cover-pages'
@@ -39,6 +39,7 @@ import {
   DOC_SHAPE_GROUPS,
   insertBlankPageAt,
   insertImageViaDialog,
+  insertImageFromUrl,
   insertPageBreakAt,
   insertShapeAt,
   insertTableAt,
@@ -577,6 +578,7 @@ export function InsertTab({
   const [bookmarkOpen, setBookmarkOpen] = useState(false)
   const [crossRefOpen, setCrossRefOpen] = useState(false)
   const [chartOpen, setChartOpen] = useState(false)
+  const [galleryOpen, setGalleryOpen] = useState(false)
 
   const insertTable = (rows: number, cols: number) => {
     insertTableAt(editor, rows, cols)
@@ -703,6 +705,17 @@ export function InsertTab({
               <IconPicture size={BIG} />
             </span>
             <span>{t('ribbonPicture')}</span>
+          </button>
+          <button
+            className="rb-big"
+            disabled={!hasDoc}
+            title="搜索在线图片并插入"
+            onClick={() => setGalleryOpen(true)}
+          >
+            <span className="rb-big-icon">
+              <IconPicture size={BIG} />
+            </span>
+            <span>在线图片</span>
           </button>
           <button
             className="rb-big"
@@ -1169,6 +1182,24 @@ export function InsertTab({
       {bookmarkOpen && <BookmarkModal editor={editor} onClose={() => setBookmarkOpen(false)} />}
       {crossRefOpen && <CrossRefModal editor={editor} onClose={() => setCrossRefOpen(false)} />}
       {chartOpen && <ChartInsertModal editor={editor} onClose={() => setChartOpen(false)} />}
+      {galleryOpen && (
+        <div className="modal-backdrop" onClick={() => setGalleryOpen(false)}>
+          <div
+            className="modal"
+            style={{ width: 720, height: 560, maxWidth: '90vw', maxHeight: '85vh', padding: 0 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ImageGallery
+              search={(q, max) => window.desktop.imageSearch(q, max)}
+              onPick={(img) => {
+                setGalleryOpen(false)
+                void insertImageFromUrl(editor, img.imageUrl, img.title)
+              }}
+              onClose={() => setGalleryOpen(false)}
+            />
+          </div>
+        </div>
+      )}
     </>
   )
 }

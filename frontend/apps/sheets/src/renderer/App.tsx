@@ -1,3 +1,5 @@
+import { ImageGallery } from '@genoffice/ui'
+import { imageSearch } from './web-adapter'
 import {
   absRangeRef,
   activateFormulaClosure,
@@ -208,6 +210,7 @@ import {
   insertAiChartVisual as insertAiChartVisualImpl,
   insertAiImageVisual as insertAiImageVisualImpl,
   insertAiShapeVisual as insertAiShapeVisualImpl,
+  insertPictureFromUrl,
   type VisualActionContext,
 } from './visual-actions'
 import {
@@ -441,6 +444,7 @@ export function App(): React.JSX.Element {
   /// True while the Insert → Symbol dialog is open.
   const [symbolDialogOpen, setSymbolDialogOpen] = useState(false)
   const [screenshotDialogOpen, setScreenshotDialogOpen] = useState(false)
+  const [galleryOpen, setGalleryOpen] = useState(false)
   const [iconsDialogOpen, setIconsDialogOpen] = useState(false)
   const [equationDialogOpen, setEquationDialogOpen] = useState(false)
   const [recommendedCharts, setRecommendedCharts] = useState<ChartRecommendations | null>(null)
@@ -2658,6 +2662,10 @@ export function App(): React.JSX.Element {
   }
 
   function handleRibbonCommand(command: string): void {
+    if (command === 'insert-online-picture') {
+      setGalleryOpen(true)
+      return
+    }
     handleRibbonCommandImpl(ribbonContext(), command)
   }
 
@@ -3159,6 +3167,43 @@ export function App(): React.JSX.Element {
           }
           onClose={() => setScreenshotDialogOpen(false)}
         />
+      )}
+      {galleryOpen && (
+        <div
+          onClick={() => setGalleryOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.35)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              width: 720,
+              height: 560,
+              maxWidth: '90vw',
+              maxHeight: '85vh',
+              background: '#fff',
+              borderRadius: 12,
+              boxShadow: '0 12px 40px rgba(0,0,0,0.25)',
+              overflow: 'hidden',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ImageGallery
+              search={imageSearch}
+              onPick={(img) => {
+                setGalleryOpen(false)
+                void insertPictureFromUrl(visualContext(), img.imageUrl, img.title)
+              }}
+              onClose={() => setGalleryOpen(false)}
+            />
+          </div>
+        </div>
       )}
       {iconsDialogOpen && (
         <IconsDialog

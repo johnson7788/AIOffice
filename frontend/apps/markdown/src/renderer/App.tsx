@@ -22,6 +22,8 @@ import { MindmapView } from './mindmap/MindmapView'
 import { exportDocxBytes } from './export/docxExport'
 import { buildPrintHtml } from './export/printHtml'
 import { resolveImageSrc } from './editor/localImage'
+import { imageSearch } from './web-adapter'
+import { ImageGallery } from '@genoffice/ui'
 import type { ExportFormat, SaveMode } from '../shared/ipc'
 
 type LoadStatus = 'loading' | 'ready' | 'error'
@@ -84,6 +86,7 @@ export default function App() {
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [slashState, setSlashState] = useState<SlashMenuState | null>(null)
   const [fmOpen, setFmOpen] = useState(false)
+  const [galleryOpen, setGalleryOpen] = useState(false)
   const [fmText, setFmText] = useState('')
   const [aiOpen, setAiOpen] = useState(true)
   const [aiPreset, setAiPreset] = useState<AiPreset | null>(null)
@@ -115,6 +118,10 @@ export default function App() {
       const current = editorRef.current
       if (relPath && current) current.chain().focus().setImage({ src: relPath }).run()
     })()
+  }, [])
+
+  const insertImageUrl = useCallback((url: string) => {
+    editorRef.current?.chain().focus().setImage({ src: url }).run()
   }, [])
 
   const extensions = useMemo(() => {
@@ -361,6 +368,7 @@ export default function App() {
         disabled={status !== 'ready'}
         imageEnabled={Boolean(filePath)}
         onInsertImage={insertImage}
+        onInsertOnlineImage={() => setGalleryOpen(true)}
         frontmatterOpen={fmOpen}
         onToggleFrontmatter={() => setFmOpen((v) => !v)}
         aiOpen={aiOpen}
@@ -424,6 +432,43 @@ export default function App() {
         {fileName && <span className="status-file">{fileName}</span>}
         {statusText && <span className={`status-save status-${saveState}`}>{statusText}</span>}
       </div>
+      {galleryOpen && (
+        <div
+          onClick={() => setGalleryOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.35)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              width: 720,
+              height: 560,
+              maxWidth: '90vw',
+              maxHeight: '85vh',
+              background: '#fff',
+              borderRadius: 12,
+              boxShadow: '0 12px 40px rgba(0,0,0,0.25)',
+              overflow: 'hidden',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ImageGallery
+              search={imageSearch}
+              onPick={(img) => {
+                setGalleryOpen(false)
+                insertImageUrl(img.imageUrl)
+              }}
+              onClose={() => setGalleryOpen(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -304,6 +304,8 @@ export interface Props {
   onPickShape: (kind: InsertKind) => void
   /** Open the image picker dialog and insert into the current page */
   onInsertImage: () => void
+  /** Open the online image gallery (search + click to insert) */
+  onInsertOnlineImage: () => void
   /** Set the page background solid color; allSlides=true applies to all pages */
   onBackground: (color: string, allSlides: boolean) => void
   /** Apply a built-in theme (colors + font scheme, applied to all pages) */
@@ -577,6 +579,7 @@ export interface RibbonTabCtx extends Pick<
   | 'onInsertField'
   | 'onInsertIcon'
   | 'onInsertImage'
+  | 'onInsertOnlineImage'
   | 'onInsertMedia'
   | 'onInsertModel3d'
   | 'onInsertSmartArt'
