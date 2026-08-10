@@ -1,0 +1,7 @@
+# Local dev/build artifacts must never enter the image build context
+**/node_modules
+**/dist
+**/.vite
+**/*.tsbuildinfo
+apps/slides/src/renderer/dist
+apps/sheets/src/renderer/dist

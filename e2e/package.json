@@ -1,0 +1,12 @@
+{
+  "name": "aioffice-e2e",
+  "private": true,
+  "description": "Playwright end-to-end tests against the deployed AIOffice stack (nginx :80 → backend + 4 SPAs)",
+  "scripts": {
+    "test": "playwright test",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}

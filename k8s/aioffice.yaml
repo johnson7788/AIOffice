@@ -1,0 +1,114 @@
+# Minimal k8s skeleton. PG + object storage are external/managed — wire their
+# URLs into the Secret below. Build & push frontend/backend images first, then
+# set them in the Deployments. `kubectl apply -f k8s/`.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: aioffice-secrets
+type: Opaque
+stringData:
+  JWT_SECRET: change-me-to-a-32-byte-random-secret
+  DATABASE_URL: postgresql+asyncpg://user:pass@YOUR-PG-HOST:5432/aioffice
+  DEEPSEEK_API_KEY: ""
+  S3_ENDPOINT: https://YOUR-S3-ENDPOINT
+  S3_BUCKET: aioffice
+  S3_ACCESS_KEY: ""
+  S3_SECRET_KEY: ""
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aioffice-config
+data:
+  MODEL_PROVIDER: deepseek
+  MODEL_NAME: deepseek-chat
+  SEARXNG_URL: ""
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: backend }
+  template:
+    metadata:
+      labels: { app: backend }
+    spec:
+      containers:
+        - name: backend
+          image: aioffice-backend:latest   # build ./backend, push, set here
+          ports:
+            - containerPort: 8585
+          envFrom:
+            - configMapRef: { name: aioffice-config }
+            - secretRef: { name: aioffice-secrets }
+          readinessProbe:
+            httpGet: { path: /healthz, port: 8585 }
+            initialDelaySeconds: 5
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8585 }
+            initialDelaySeconds: 10
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: "1", memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend        # nginx.conf proxies to backend:8585 — keep this name
+spec:
+  selector: { app: backend }
+  ports:
+    - port: 8585
+      targetPort: 8585
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: { type: Utilization, averageUtilization: 70 }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: frontend }
+  template:
+    metadata:
+      labels: { app: frontend }
+    spec:
+      containers:
+        - name: frontend
+          image: aioffice-frontend:latest  # build ./frontend, push, set here
+          ports:
+            - containerPort: 80
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { cpu: 200m, memory: 128Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+spec:
+  type: LoadBalancer   # or ClusterIP behind an Ingress (add TLS there)
+  selector: { app: frontend }
+  ports:
+    - port: 80
+      targetPort: 80

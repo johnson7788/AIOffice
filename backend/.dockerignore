@@ -1,0 +1,10 @@
+# Local dev/build artifacts must never enter the image build context
+.venv
+**/__pycache__
+*.pyc
+**/target
+uploads
+cache
+logs
+*.db
+tests
