@@ -181,3 +181,36 @@ async def restore_version(
     ver = await _add_version(doc, data, user, session)  # copy old bytes forward as latest
     await session.commit()
     return VersionOut(id=ver.id, size=ver.size, created=ver.created)
+
+
+# ── Thumbnails: client engines render a small PNG on save; we just store/serve it.
+# Keyed off the doc (not a version) so it overwrites in place — no schema column
+# needed, so this stays create_all-safe on existing DBs (no Alembic).
+def _thumb_key(doc: Document) -> str:
+    return f"org/{doc.org_id}/doc/{doc.id}/thumb"
+
+
+@router.put("/{doc_id}/thumb", status_code=status.HTTP_204_NO_CONTENT)
+async def put_thumb(
+    doc_id: str,
+    request: Request,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    doc = await _get_owned(doc_id, user, session)
+    storage.put_blob(_thumb_key(doc), await _read_body(request))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/{doc_id}/thumb")
+async def get_thumb(
+    doc_id: str,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    doc = await _get_owned(doc_id, user, session)
+    try:
+        data = storage.get_blob(_thumb_key(doc))
+    except Exception:  # missing thumb (local FileNotFoundError / S3 NoSuchKey)
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "no thumbnail")
+    return Response(content=data, media_type="image/png", headers={"Cache-Control": "no-cache"})

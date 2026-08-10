@@ -406,6 +406,14 @@ export async function downloadDocument(docId: string, title: string): Promise<vo
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
+/** blob object-URL of a doc's thumbnail, or null if it has none (404).
+ *  Caller must URL.revokeObjectURL when done. */
+export async function thumbObjectUrl(docId: string): Promise<string | null> {
+  const r = await authFetch(`/documents/${docId}/thumb`).catch(() => null)
+  if (!r?.ok) return null
+  return URL.createObjectURL(await r.blob())
+}
+
 // ── Share links (public read-only; backend M5 /documents/{id}/share*) ─────
 export interface ShareMeta {
   token: string

@@ -49,6 +49,24 @@ def test_cross_tenant_isolation():
         assert all(d["id"] != did for d in c.get("/documents", headers=hb).json())
 
 
+def test_thumbnail_put_get_missing():
+    with TestClient(main.app) as c:
+        h = _auth(c, "thumb@x.com")
+        did = c.post("/documents", params={"title": "t.pptx"}, content=b"deck", headers=h).json()["id"]
+
+        # no thumb yet → 404
+        assert c.get(f"/documents/{did}/thumb", headers=h).status_code == 404
+        # store then serve as image/png
+        assert c.put(f"/documents/{did}/thumb", content=b"PNGBYTES", headers=h).status_code == 204
+        r = c.get(f"/documents/{did}/thumb", headers=h)
+        assert r.status_code == 200 and r.content == b"PNGBYTES"
+        assert r.headers["content-type"] == "image/png"
+        # cross-tenant cannot read/write it
+        hb = _auth(c, "thumb-b@x.com")
+        assert c.get(f"/documents/{did}/thumb", headers=hb).status_code == 404
+        assert c.put(f"/documents/{did}/thumb", content=b"x", headers=hb).status_code == 404
+
+
 def test_blob_size_limit():
     from app.settings import MAX_BLOB_MB
 

@@ -303,6 +303,15 @@ async function putBlob(id: string, bytes: Uint8Array): Promise<boolean> {
   const r = await authFetch(`/documents/${id}/blob`, { method: 'PUT', body: bytes as BodyInit })
   return r.ok
 }
+/** upload a card thumbnail (base64 PNG, no data: prefix) for the Home doc grid */
+export async function putThumb(id: string, pngBase64: string): Promise<void> {
+  const bin = atob(pngBase64)
+  const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  await authFetch(`/documents/${id}/thumb`, { method: 'PUT', body: bytes as BodyInit }).catch(
+    () => {},
+  )
+}
 async function createDoc(title: string, bytes: Uint8Array): Promise<string | null> {
   const r = await authFetch(`/documents?title=${encodeURIComponent(title)}`, {
     method: 'POST',

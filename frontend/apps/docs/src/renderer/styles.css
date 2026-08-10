@@ -7447,6 +7447,26 @@ tr > .page-gap-cut {
 .home-doc-badge.k-sheets { background: #16a34a; }
 .home-doc-badge.k-mind { background: #7c3aed; }
 .home-doc-badge.k-other { background: #94a3b8; }
+.home-doc-thumb {
+  width: 100%;
+  height: 116px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: #f1f5f9;
+}
+.home-doc-thumb.tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 34px;
+  font-weight: 700;
+  color: #fff;
+}
+.home-doc-thumb.tile.k-docs { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
+.home-doc-thumb.tile.k-slides { background: linear-gradient(135deg, #fb923c, #ea580c); }
+.home-doc-thumb.tile.k-sheets { background: linear-gradient(135deg, #34d399, #16a34a); }
+.home-doc-thumb.tile.k-mind { background: linear-gradient(135deg, #a78bfa, #7c3aed); }
+.home-doc-thumb.tile.k-other { background: linear-gradient(135deg, #cbd5e1, #94a3b8); }
 .home-doc-title {
   font-size: 13px;
   color: #1e293b;

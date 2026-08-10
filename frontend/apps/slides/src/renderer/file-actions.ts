@@ -5,8 +5,18 @@
 import type { RenderSlide } from '@genoffice/pptx-render'
 import type { ActionCtx } from './action-context'
 import { renderSlidesToPngBase64 } from './export-render'
+import { putThumb } from './web-adapter'
 import { t } from './i18n/locale'
 import { showToast } from './components/toast-bus'
+
+/** Render the first (visible) slide to a small PNG and upload it as the Home
+ *  card thumbnail. Fire-and-forget: never blocks or fails the save. */
+async function uploadThumb(ctx: ActionCtx, id: string): Promise<void> {
+  const first = ctx.slides.find((s) => !s.hidden) ?? ctx.slides[0]
+  if (!first) return
+  const [png] = await renderSlidesToPngBase64([first], ctx.images, 0.4) // ~512px wide
+  if (png) await putThumb(id, png)
+}
 
 /**
  * If a text box/table is still being edited on ⌘S/close-save, blur first so the
@@ -46,6 +56,7 @@ export async function save(ctx: ActionCtx, quiet = false): Promise<boolean> {
     if (r.slides) adoptSavedSlides(ctx, r.slides)
     if (r.path) ctx.setPath(r.path)
     ctx.setDirty(false)
+    if (r.path) void uploadThumb(ctx, r.path).catch(() => {})
     const saved = t('appStatusSaved', { name: r.path?.split('/').pop() ?? '' })
     ctx.setStatus(saved)
     if (!quiet) showToast(saved)
@@ -66,6 +77,7 @@ export async function saveAs(ctx: ActionCtx): Promise<void> {
     if (r.slides) adoptSavedSlides(ctx, r.slides)
     ctx.setPath(r.path ?? ctx.path)
     ctx.setDirty(false)
+    if (r.path) void uploadThumb(ctx, r.path).catch(() => {})
     const saved = t('appStatusSavedAs', { name: r.path?.split('/').pop() ?? '' })
     ctx.setStatus(saved)
     showToast(saved)

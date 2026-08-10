@@ -16,6 +16,7 @@ import {
   restoreVersion,
   revokeShare,
   shareUrl,
+  thumbObjectUrl,
 } from '../web-adapter'
 
 // A generation prompt is handed to the docs editor via sessionStorage; the docs
@@ -89,6 +90,28 @@ function docKind(doc: DocMeta): Kind | 'other' {
     default:
       return 'other' // pdf / plain md
   }
+}
+
+// Card preview: real thumbnail (if the doc has one on the backend) else a
+// gradient type-tile with the type glyph. ponytail: thumbnails are produced by
+// each editor on save (slides wired first); tile is the graceful fallback.
+function DocThumb({ doc }: { doc: DocMeta }) {
+  const [url, setUrl] = useState<string | null>(null)
+  useEffect(() => {
+    let live = true
+    let got: string | null = null
+    void thumbObjectUrl(doc.id).then((u) => {
+      if (live) setUrl((got = u))
+      else if (u) URL.revokeObjectURL(u)
+    })
+    return () => {
+      live = false
+      if (got) URL.revokeObjectURL(got)
+    }
+  }, [doc.id])
+  const b = BADGE[docKind(doc)]
+  if (url) return <img className="home-doc-thumb" src={url} alt="" />
+  return <div className={`home-doc-thumb tile ${b.cls}`}>{b.label}</div>
 }
 
 function relTime(iso: string): string {
@@ -338,7 +361,6 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
           ) : (
             <div className="home-grid">
               {shown.map((d) => {
-                const b = BADGE[docKind(d)]
                 return (
                   <div
                     key={d.id}
@@ -350,7 +372,7 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
                       if (e.key === 'Enter') openDoc(d, onOpenEditor)
                     }}
                   >
-                    <span className={`home-doc-badge ${b.cls}`}>{b.label}</span>
+                    <DocThumb doc={d} />
                     <span className="home-doc-title">{d.title}</span>
                     <span className="home-doc-time">{relTime(d.updated)}</span>
                     <div className="home-doc-actions">
