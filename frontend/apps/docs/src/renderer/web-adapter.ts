@@ -379,6 +379,33 @@ declare global {
 window.desktop = desktop
 window.projectApi = projectApi
 
+// ── Home document actions: versions + download ────────────────────────────
+export interface VersionMeta {
+  id: string
+  size: number
+  created: string
+}
+export async function listVersions(docId: string): Promise<VersionMeta[]> {
+  const r = await authFetch(`/documents/${docId}/versions`)
+  return r.ok ? ((await r.json()) as VersionMeta[]) : []
+}
+/** restore an older version: backend copies its bytes forward as the new latest */
+export async function restoreVersion(docId: string, verId: string): Promise<boolean> {
+  const r = await authFetch(`/documents/${docId}/versions/${verId}/restore`, { method: 'POST' })
+  return r.ok
+}
+/** download a document's latest blob under its title */
+export async function downloadDocument(docId: string, title: string): Promise<void> {
+  const r = await authFetch(`/documents/${docId}/blob`)
+  if (!r.ok) return
+  const url = URL.createObjectURL(await r.blob())
+  const a = document.createElement('a')
+  a.href = url
+  a.download = title
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
 // ── Home sidebar: projects + which docs belong to each ────────────────────
 export interface ProjectMeta {
   id: string

@@ -2,11 +2,15 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   type DocMeta,
   type ProjectMeta,
+  type VersionMeta,
   appUrl,
   clearToken,
+  downloadDocument,
   listDocuments,
   listProjects,
+  listVersions,
   projectDocIds,
+  restoreVersion,
 } from '../web-adapter'
 
 // A generation prompt is handed to the docs editor via sessionStorage; the docs
@@ -131,6 +135,9 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
   const [projects, setProjects] = useState<ProjectMeta[]>([])
   // projectId → set of doc ids (from each project's chat timeline)
   const [projDocs, setProjDocs] = useState<Record<string, Set<string>>>({})
+  // version-history modal: the doc whose versions are shown (null = closed)
+  const [versionsFor, setVersionsFor] = useState<DocMeta | null>(null)
+  const [versions, setVersions] = useState<VersionMeta[]>([])
 
   useEffect(() => {
     void listDocuments().then(setRecent)
@@ -175,6 +182,18 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
   const send = () => {
     const text = prompt.trim()
     if (text) create(kind, text)
+  }
+
+  const openVersions = async (d: DocMeta) => {
+    setVersionsFor(d)
+    setVersions(await listVersions(d.id))
+  }
+  const doRestore = async (verId: string) => {
+    if (!versionsFor) return
+    if (await restoreVersion(versionsFor.id, verId)) {
+      setVersions(await listVersions(versionsFor.id))
+      void listDocuments().then(setRecent) // updated time reflects the new latest version
+    }
   }
 
   const NAV: { id: string; label: string }[] = [
@@ -300,17 +319,72 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
               {shown.map((d) => {
                 const b = BADGE[docKind(d)]
                 return (
-                  <button key={d.id} className="home-doc" onClick={() => openDoc(d, onOpenEditor)}>
+                  <div
+                    key={d.id}
+                    className="home-doc"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => openDoc(d, onOpenEditor)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') openDoc(d, onOpenEditor)
+                    }}
+                  >
                     <span className={`home-doc-badge ${b.cls}`}>{b.label}</span>
                     <span className="home-doc-title">{d.title}</span>
                     <span className="home-doc-time">{relTime(d.updated)}</span>
-                  </button>
+                    <div className="home-doc-actions">
+                      <button
+                        title="下载"
+                        onClick={(e) => { e.stopPropagation(); void downloadDocument(d.id, d.title) }}
+                      >
+                        下载
+                      </button>
+                      <button
+                        title="历史版本"
+                        onClick={(e) => { e.stopPropagation(); void openVersions(d) }}
+                      >
+                        历史
+                      </button>
+                    </div>
+                  </div>
                 )
               })}
             </div>
           )}
         </section>
       </main>
+
+      {versionsFor && (
+        <div className="home-modal-backdrop" onClick={() => setVersionsFor(null)}>
+          <div className="home-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="home-modal-head">
+              <span className="home-modal-title">历史版本 · {versionsFor.title}</span>
+              <button className="home-modal-close" onClick={() => setVersionsFor(null)}>✕</button>
+            </div>
+            {versions.length === 0 ? (
+              <div className="home-empty">暂无版本</div>
+            ) : (
+              <ul className="home-ver-list">
+                {versions.map((v, i) => (
+                  <li key={v.id} className="home-ver">
+                    <span className="home-ver-info">
+                      {i === 0 ? '当前版本' : `版本 ${versions.length - i}`}
+                      <span className="home-ver-meta">
+                        {new Date(v.created).toLocaleString()} · {(v.size / 1024).toFixed(0)} KB
+                      </span>
+                    </span>
+                    {i !== 0 && (
+                      <button className="home-ver-restore" onClick={() => void doRestore(v.id)}>
+                        恢复
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
