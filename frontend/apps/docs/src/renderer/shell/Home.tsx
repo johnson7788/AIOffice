@@ -1,3 +1,4 @@
+import { ImageGallery } from '@genoffice/ui'
 import { useEffect, useMemo, useState } from 'react'
 import {
   type DocMeta,
@@ -194,6 +195,8 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
   const [moveFor, setMoveFor] = useState<DocMeta | null>(null)
   // right-side preview panel: the selected recent card (null = hidden)
   const [selected, setSelected] = useState<DocMeta | null>(null)
+  // standalone 我的图库 overlay (browse all uploaded / extracted images)
+  const [showGallery, setShowGallery] = useState(false)
 
   useEffect(() => {
     void listDocuments().then(setRecent)
@@ -336,6 +339,9 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
               {counts[n.id] ? <span className="home-nav-count">{counts[n.id]}</span> : null}
             </button>
           ))}
+          <button className="home-nav-item" onClick={() => setShowGallery(true)}>
+            <span>我的图库</span>
+          </button>
         </nav>
         {projects.length > 0 && (
           <>
@@ -510,6 +516,23 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
             <button onClick={() => void openShare(selected)}>分享</button>
           </div>
         </aside>
+      )}
+
+      {showGallery && (
+        <div className="home-modal-backdrop" onClick={() => setShowGallery(false)}>
+          <div
+            className="home-modal"
+            style={{ width: 'min(860px, 92vw)', height: '80vh', padding: 0 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ImageGallery
+              search={(q, max) => window.desktop.imageSearch(q, max)}
+              gallery={{ docId: null }} // Home has no open doc → 从文档提取 disabled; upload/browse/delete work
+              onPick={() => {}} // browse-only: no editor to insert into
+              onClose={() => setShowGallery(false)}
+            />
+          </div>
+        </div>
       )}
 
       {versionsFor && (
