@@ -31,6 +31,7 @@ MIME = {
     ".html": "text/html", ".js": "text/javascript", ".css": "text/css",
     ".json": "application/json", ".png": "image/png", ".svg": "image/svg+xml",
     ".woff2": "font/woff2", ".wasm": "application/wasm", ".map": "application/json",
+    ".mjs": "text/javascript",  # pdf.js worker is a module — octet-stream breaks it
 }
 
 
