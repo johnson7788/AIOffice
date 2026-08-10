@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { type DocMeta, appUrl, clearToken, listDocuments } from '../web-adapter'
 
 // A generation prompt is handed to the docs editor via sessionStorage; the docs
@@ -44,12 +44,47 @@ const goMindmap = (prompt?: string) => goApp('markdown', prompt, { view: 'mindma
 
 type Kind = 'docs' | 'slides' | 'sheets' | 'mindmap'
 
-const KINDS: { id: Kind; label: string; disabled?: boolean }[] = [
+const KINDS: { id: Kind; label: string }[] = [
   { id: 'docs', label: '文字文档' },
   { id: 'slides', label: '演示文稿' },
   { id: 'sheets', label: '表格' },
   { id: 'mindmap', label: '思维导图' },
 ]
+
+// Small type badge shown on recent cards / filter nav. `other` = pdf / plain md.
+const BADGE: Record<Kind | 'other', { label: string; cls: string }> = {
+  docs: { label: 'W', cls: 'k-docs' },
+  slides: { label: 'P', cls: 'k-slides' },
+  sheets: { label: 'X', cls: 'k-sheets' },
+  mindmap: { label: '图', cls: 'k-mind' },
+  other: { label: '·', cls: 'k-other' },
+}
+
+function docKind(doc: DocMeta): Kind | 'other' {
+  if (isMindmap(doc.title)) return 'mindmap'
+  switch (doc.type) {
+    case 'docx':
+      return 'docs'
+    case 'pptx':
+      return 'slides'
+    case 'xlsx':
+      return 'sheets'
+    default:
+      return 'other' // pdf / plain md
+  }
+}
+
+function relTime(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime()
+  const m = Math.floor(ms / 60000)
+  if (m < 1) return '刚刚'
+  if (m < 60) return `${m} 分钟前`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h} 小时前`
+  const d = Math.floor(h / 24)
+  if (d < 30) return `${d} 天前`
+  return new Date(iso).toLocaleDateString()
+}
 
 const QUICK: Record<Kind, { title: string; prompt: string }[]> = {
   docs: [
@@ -82,96 +117,149 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
   const [prompt, setPrompt] = useState('')
   const [kind, setKind] = useState<Kind>('docs')
   const [recent, setRecent] = useState<DocMeta[]>([])
+  const [filter, setFilter] = useState<Kind | 'other' | 'all'>('all')
+  const [query, setQuery] = useState('')
 
   useEffect(() => {
     void listDocuments().then(setRecent)
   }, [])
 
+  // build once; filter nav counts + the filtered/searched grid derive from it
+  const counts = useMemo(() => {
+    const c: Record<string, number> = { all: recent.length }
+    for (const d of recent) c[docKind(d)] = (c[docKind(d)] ?? 0) + 1
+    return c
+  }, [recent])
+
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return recent.filter(
+      (d) =>
+        (filter === 'all' || docKind(d) === filter) &&
+        (!q || d.title.toLowerCase().includes(q)),
+    )
+  }, [recent, filter, query])
+
+  const create = (k: Kind, text?: string) => {
+    if (k === 'slides') goSlides(text)
+    else if (k === 'sheets') goSheets(text)
+    else if (k === 'mindmap') goMindmap(text)
+    else if (text) openWithPrompt(text, onOpenEditor)
+    else onOpenEditor()
+  }
+
   const send = () => {
     const text = prompt.trim()
-    if (!text) return
-    if (kind === 'slides') goSlides(text)
-    else if (kind === 'sheets') goSheets(text)
-    else if (kind === 'mindmap') goMindmap(text)
-    else openWithPrompt(text, onOpenEditor)
+    if (text) create(kind, text)
   }
+
+  const NAV: { id: Kind | 'all'; label: string }[] = [
+    { id: 'all', label: '全部' },
+    ...KINDS.map((k) => ({ id: k.id, label: k.label })),
+  ]
 
   return (
     <div className="home">
       <aside className="home-side">
         <div className="home-logo">AI Office</div>
         <div className="home-new-row">
-          <button className="home-new" onClick={onOpenEditor}>
-            + 文字文档
-          </button>
-          <button className="home-new" onClick={() => goSlides()}>
-            + 演示文稿
-          </button>
-          <button className="home-new" onClick={() => goSheets()}>
-            + 表格
-          </button>
-          <button className="home-new" onClick={() => goMindmap()}>
-            + 思维导图
-          </button>
+          <button className="home-new" onClick={() => create('docs')}>+ 文字</button>
+          <button className="home-new" onClick={() => create('slides')}>+ 演示</button>
+          <button className="home-new" onClick={() => create('sheets')}>+ 表格</button>
+          <button className="home-new" onClick={() => create('mindmap')}>+ 导图</button>
         </div>
-        <div className="home-side-title">最近</div>
-        <div className="home-recent">
-          {recent.length === 0 && <div className="home-empty">还没有文档</div>}
-          {recent.map((d) => (
-            <button key={d.id} className="home-recent-item" onClick={() => openDoc(d, onOpenEditor)}>
-              {d.title}
+        <nav className="home-nav">
+          {NAV.map((n) => (
+            <button
+              key={n.id}
+              className={`home-nav-item${filter === n.id ? ' active' : ''}`}
+              onClick={() => setFilter(n.id)}
+            >
+              <span>{n.label}</span>
+              {counts[n.id] ? <span className="home-nav-count">{counts[n.id]}</span> : null}
             </button>
           ))}
-        </div>
+        </nav>
+        <div className="home-side-spacer" />
         <button className="home-logout" onClick={() => { clearToken(); location.reload() }}>
           退出登录
         </button>
       </aside>
 
       <main className="home-main">
-        <h1 className="home-heading">想创建点什么？</h1>
-        <div className="home-kind">
-          {KINDS.map((k) => (
-            <button
-              key={k.id}
-              className={`home-kind-btn${kind === k.id ? ' active' : ''}`}
-              disabled={k.disabled}
-              onClick={() => setKind(k.id)}
-            >
-              {k.label}
-            </button>
-          ))}
-        </div>
-        <div className="home-cards">
-          {QUICK[kind].map((q) => (
-            <button key={q.title} className="home-card" onClick={() => setPrompt(q.prompt)}>
-              {q.title}
-            </button>
-          ))}
-        </div>
-        <div className="home-composer">
-          <textarea
-            className="home-input"
-            placeholder={
-              kind === 'slides'
-                ? '描述你想要的演示文稿，AI 会帮你生成 PPT…'
-                : kind === 'sheets'
-                  ? '描述你想要的表格，AI 会帮你生成 Excel…'
-                  : kind === 'mindmap'
-                    ? '描述你想要的主题，AI 会帮你生成思维导图…'
-                    : '描述你想创建的内容，AI 会帮你生成文档…'
-            }
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send()
-            }}
+        <div className="home-topbar">
+          <input
+            className="home-search"
+            placeholder="搜索文档…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
           />
-          <button className="home-send" onClick={send} disabled={!prompt.trim()}>
-            生成 →
-          </button>
         </div>
-        <div className="home-hint">Cmd/Ctrl + Enter 发送</div>
+
+        <section className="home-hero">
+          <h1 className="home-heading">想创建点什么？</h1>
+          <div className="home-kind">
+            {KINDS.map((k) => (
+              <button
+                key={k.id}
+                className={`home-kind-btn${kind === k.id ? ' active' : ''}`}
+                onClick={() => setKind(k.id)}
+              >
+                {k.label}
+              </button>
+            ))}
+          </div>
+          <div className="home-cards">
+            {QUICK[kind].map((q) => (
+              <button key={q.title} className="home-card" onClick={() => create(kind, q.prompt)}>
+                {q.title}
+              </button>
+            ))}
+          </div>
+          <div className="home-composer">
+            <textarea
+              className="home-input"
+              placeholder={
+                kind === 'slides'
+                  ? '描述你想要的演示文稿，AI 会帮你生成 PPT…'
+                  : kind === 'sheets'
+                    ? '描述你想要的表格，AI 会帮你生成 Excel…'
+                    : kind === 'mindmap'
+                      ? '描述你想要的主题，AI 会帮你生成思维导图…'
+                      : '描述你想创建的内容，AI 会帮你生成文档…'
+              }
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send()
+              }}
+            />
+            <button className="home-send" onClick={send} disabled={!prompt.trim()}>
+              生成 →
+            </button>
+          </div>
+          <div className="home-hint">Cmd/Ctrl + Enter 发送 · 点快捷卡片直接生成</div>
+        </section>
+
+        <section className="home-recent">
+          <div className="home-recent-title">{filter === 'all' ? '最近' : NAV.find((n) => n.id === filter)?.label}</div>
+          {shown.length === 0 ? (
+            <div className="home-empty">{query ? '没有匹配的文档' : '还没有文档'}</div>
+          ) : (
+            <div className="home-grid">
+              {shown.map((d) => {
+                const b = BADGE[docKind(d)]
+                return (
+                  <button key={d.id} className="home-doc" onClick={() => openDoc(d, onOpenEditor)}>
+                    <span className={`home-doc-badge ${b.cls}`}>{b.label}</span>
+                    <span className="home-doc-title">{d.title}</span>
+                    <span className="home-doc-time">{relTime(d.updated)}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </section>
       </main>
     </div>
   )
