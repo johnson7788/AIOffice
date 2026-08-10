@@ -2,15 +2,20 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   type DocMeta,
   type ProjectMeta,
+  type ShareMeta,
   type VersionMeta,
   appUrl,
   clearToken,
+  createShare,
   downloadDocument,
   listDocuments,
   listProjects,
+  listShares,
   listVersions,
   projectDocIds,
   restoreVersion,
+  revokeShare,
+  shareUrl,
 } from '../web-adapter'
 
 // A generation prompt is handed to the docs editor via sessionStorage; the docs
@@ -138,6 +143,9 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
   // version-history modal: the doc whose versions are shown (null = closed)
   const [versionsFor, setVersionsFor] = useState<DocMeta | null>(null)
   const [versions, setVersions] = useState<VersionMeta[]>([])
+  // share modal: the doc whose share links are shown (null = closed)
+  const [shareFor, setShareFor] = useState<DocMeta | null>(null)
+  const [shares, setShares] = useState<ShareMeta[]>([])
 
   useEffect(() => {
     void listDocuments().then(setRecent)
@@ -194,6 +202,19 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
       setVersions(await listVersions(versionsFor.id))
       void listDocuments().then(setRecent) // updated time reflects the new latest version
     }
+  }
+
+  const openShare = async (d: DocMeta) => {
+    setShareFor(d)
+    setShares(await listShares(d.id))
+  }
+  const doCreateShare = async () => {
+    if (!shareFor) return
+    if (await createShare(shareFor.id)) setShares(await listShares(shareFor.id))
+  }
+  const doRevokeShare = async (token: string) => {
+    if (!shareFor) return
+    if (await revokeShare(shareFor.id, token)) setShares(await listShares(shareFor.id))
   }
 
   const NAV: { id: string; label: string }[] = [
@@ -345,6 +366,12 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
                       >
                         历史
                       </button>
+                      <button
+                        title="分享只读链接"
+                        onClick={(e) => { e.stopPropagation(); void openShare(d) }}
+                      >
+                        分享
+                      </button>
                     </div>
                   </div>
                 )
@@ -382,6 +409,40 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
                 ))}
               </ul>
             )}
+          </div>
+        </div>
+      )}
+
+      {shareFor && (
+        <div className="home-modal-backdrop" onClick={() => setShareFor(null)}>
+          <div className="home-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="home-modal-head">
+              <span className="home-modal-title">分享 · {shareFor.title}</span>
+              <button className="home-modal-close" onClick={() => setShareFor(null)}>✕</button>
+            </div>
+            {shares.length === 0 ? (
+              <div className="home-empty">还没有分享链接</div>
+            ) : (
+              <ul className="home-ver-list">
+                {shares.map((s) => (
+                  <li key={s.token} className="home-ver">
+                    <input className="home-share-url" readOnly value={shareUrl(s.token)} />
+                    <button
+                      className="home-ver-restore"
+                      onClick={() => void navigator.clipboard.writeText(shareUrl(s.token))}
+                    >
+                      复制
+                    </button>
+                    <button className="home-share-revoke" onClick={() => void doRevokeShare(s.token)}>
+                      撤销
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <button className="home-send home-share-new" onClick={() => void doCreateShare()}>
+              + 新建只读链接
+            </button>
           </div>
         </div>
       )}

@@ -3,6 +3,10 @@ import { App } from '../App'
 import { hasToken } from '../web-adapter'
 import { Home } from './Home'
 import { Login } from './Login'
+import { ShareView } from './ShareView'
+
+// Public read-only share landing — bypasses the login gate entirely.
+const shareToken = new URLSearchParams(location.search).get('share')
 
 /**
  * Top-level SaaS shell: Login gate → chat-first Home → docs editor.
@@ -14,6 +18,8 @@ export function Shell() {
   const [authed, setAuthed] = useState(hasToken())
   const [view, setView] = useState<'home' | 'editor'>('home')
   const [navNonce, setNavNonce] = useState(0)
+
+  if (shareToken) return <ShareView token={shareToken} />
 
   if (!authed) return <Login onAuthed={() => setAuthed(true)} />
 

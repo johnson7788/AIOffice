@@ -7552,6 +7552,58 @@ tr > .page-gap-cut {
 .home-ver-restore:hover {
   background: #e0e7ff;
 }
+.home-share-url {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: #475569;
+  padding: 6px 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+.home-share-revoke {
+  font-size: 12px;
+  color: #b91c1c;
+  padding: 4px 10px;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  background: #fef2f2;
+  cursor: pointer;
+}
+.home-share-new {
+  margin-top: 14px;
+}
+.share-view {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f1f5f9;
+}
+.share-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: min(420px, 92vw);
+  padding: 32px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(2, 6, 23, 0.12);
+  text-align: center;
+}
+.share-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  word-break: break-word;
+}
+.share-sub,
+.share-status {
+  font-size: 13px;
+  color: #94a3b8;
+}
 .home-cards {
   display: flex;
   flex-wrap: wrap;

@@ -406,6 +406,53 @@ export async function downloadDocument(docId: string, title: string): Promise<vo
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
+// ── Share links (public read-only; backend M5 /documents/{id}/share*) ─────
+export interface ShareMeta {
+  token: string
+  docId: string
+  created: string
+}
+export async function createShare(docId: string): Promise<ShareMeta | null> {
+  const r = await authFetch(`/documents/${docId}/share`, { method: 'POST' })
+  if (!r.ok) return null
+  const s = (await r.json()) as { token: string; doc_id: string; created: string }
+  return { token: s.token, docId: s.doc_id, created: s.created }
+}
+export async function listShares(docId: string): Promise<ShareMeta[]> {
+  const r = await authFetch(`/documents/${docId}/shares`)
+  if (!r.ok) return []
+  const rows = (await r.json()) as { token: string; doc_id: string; created: string }[]
+  return rows.map((s) => ({ token: s.token, docId: s.doc_id, created: s.created }))
+}
+export async function revokeShare(docId: string, token: string): Promise<boolean> {
+  const r = await authFetch(`/documents/${docId}/share/${token}`, { method: 'DELETE' })
+  return r.ok
+}
+/** public read-only landing URL for a share token (opens the docs SPA's ShareView) */
+export function shareUrl(token: string): string {
+  return `${location.origin}${location.pathname}?share=${encodeURIComponent(token)}`
+}
+/** public (no-auth) share metadata for the landing page */
+export async function fetchSharedMeta(
+  token: string,
+): Promise<{ title: string; type: string } | null> {
+  const r = await fetch(`${API}/share/${token}`).catch(() => null)
+  if (!r?.ok) return null
+  const m = (await r.json()) as { title: string; type: string }
+  return { title: m.title, type: m.type }
+}
+/** public (no-auth) download of a shared document's blob */
+export async function downloadShared(token: string, title: string): Promise<void> {
+  const r = await fetch(`${API}/share/${token}/blob`).catch(() => null)
+  if (!r?.ok) return
+  const url = URL.createObjectURL(await r.blob())
+  const a = document.createElement('a')
+  a.href = url
+  a.download = title
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
 // ── Home sidebar: projects + which docs belong to each ────────────────────
 export interface ProjectMeta {
   id: string
