@@ -119,4 +119,4 @@ cp .env.example .env && ./start.sh
 
 ## License
 
-[Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0)。项目构建时参考了 genoffice 桌面版（Apache-2.0），本仓库基于 Apache-2.0 分发，保留上游版权与许可；GenOffice / Genspark 商标不属于本项目。
+[Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0)。项目构建时参考了 genoffice 桌面版（Apache-2.0）。
