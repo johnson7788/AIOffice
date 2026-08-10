@@ -6,6 +6,7 @@ import { GlobalWorkerOptions, TextLayer, getDocument } from 'pdfjs-dist/legacy/b
 import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist'
 import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'
 import { AiPanel, AiOfficeMark } from './ai/AiPanel'
+import { putThumb } from './web-adapter'
 import type { PdfAiDeps } from './ai/tools'
 import {
   MARKUP_COLORS,
@@ -1321,6 +1322,25 @@ export default function App() {
       }
       setSaveState('saved')
       setTimeout(() => setSaveState((s) => (s === 'saved' ? 'idle' : s)), 2000)
+      // Home card thumbnail: rasterize the first visible page (fire-and-forget)
+      void (async () => {
+        const origIdx = visList[0]
+        if (!doc || origIdx == null) return
+        const page = await doc.getPage(origIdx + 1)
+        const base = page.getViewport({ scale: 1, rotation: (page.rotate + rotDelta(origIdx)) % 360 })
+        const viewport = page.getViewport({
+          scale: Math.min(1, 512 / base.width),
+          rotation: (page.rotate + rotDelta(origIdx)) % 360,
+        })
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.floor(viewport.width)
+        canvas.height = Math.floor(viewport.height)
+        await page.render({ canvas, viewport }).promise
+        const png = canvas.toDataURL('image/png').split(',')[1]
+        canvas.width = 0
+        canvas.height = 0
+        if (png) await putThumb(filePath, png)
+      })().catch(() => {})
       return true
     })()
     const tracked = run.finally(() => {

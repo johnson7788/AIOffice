@@ -22,6 +22,7 @@ import {
 } from './edit-journal'
 import { t } from './i18n/locale'
 import { showToast } from './toast-bus'
+import { uploadWorkbookThumb } from './web-adapter'
 import {
   collectCfStates,
   collectDefinedNamesState,
@@ -239,6 +240,7 @@ export async function handleSave(
       })
       ctx.setMessage(saved)
       if (!quiet) showToast(saved)
+      void uploadWorkbookThumb().catch(() => {})
       return
     }
     try {
@@ -278,6 +280,7 @@ export async function handleSave(
       const saved = t('appSavedTwoPhase', { name: second.file.name })
       ctx.setMessage(saved)
       if (!quiet) showToast(saved)
+      void uploadWorkbookThumb().catch(() => {})
     } catch (error: unknown) {
       if (ctx.lazyWorkbookRef.current !== state) return
       ctx.openLazyWorkbook(result.file)

@@ -645,6 +645,36 @@ async function saveWorkbookEdits(request: WorkbookSaveRequest): Promise<Workbook
   return { canceled: false, file, touchedEntries: plan.touchedEntries as string[] }
 }
 
+/** upload a card thumbnail (base64 PNG, no data: prefix) for the Home doc grid */
+async function putThumb(docId: string, pngBase64: string): Promise<void> {
+  await authFetch(`/documents/${docId}/thumb`, {
+    method: 'PUT',
+    body: base64ToBytes(pngBase64) as BodyInit,
+  }).catch(() => {})
+}
+
+/** Grab univer's main grid canvas (the largest one under #univer-container),
+ *  downscale to a card thumbnail, and upload it for the currently-saved doc.
+ *  Fire-and-forget: never blocks or fails the save. */
+export async function uploadWorkbookThumb(): Promise<void> {
+  const docId = session?.docId
+  if (!docId) return
+  const canvases = Array.from(
+    document.querySelectorAll<HTMLCanvasElement>('#univer-container canvas'),
+  )
+  const src = canvases.sort((a, b) => b.width * b.height - a.width * a.height)[0]
+  if (!src || !src.width || !src.height) return
+  const scale = Math.min(1, 512 / src.width)
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(src.width * scale))
+  canvas.height = Math.max(1, Math.round(src.height * scale))
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  ctx.drawImage(src, 0, 0, canvas.width, canvas.height)
+  const png = canvas.toDataURL('image/png').split(',')[1]
+  if (png) await putThumb(docId, png)
+}
+
 // ── DesktopApi implementation ─────────────────────────────────────────────
 const menuHandlers = new Set<(action: MenuAction) => void>()
 const desktopApi: DesktopApi = {

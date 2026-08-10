@@ -286,6 +286,16 @@ export async function imageSearch(
   return (await r.json()) as { images: [] }
 }
 
+/** upload a card thumbnail (base64 PNG, no data: prefix) for the Home doc grid */
+export async function putThumb(docId: string, pngBase64: string): Promise<void> {
+  const bin = atob(pngBase64)
+  const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  await authFetch(`/documents/${docId}/thumb`, { method: 'PUT', body: bytes as BodyInit }).catch(
+    () => {},
+  )
+}
+
 // ── project/chat persistence (backend: /projects) ──
 async function apiPost<T>(path: string, body: unknown): Promise<T> {
   const r = await authFetch(path, {

@@ -80,6 +80,14 @@ async function putBytes(id: string, bytes: Uint8Array): Promise<Response> {
   return authFetch(`/documents/${id}/blob`, { method: 'PUT', body: bytes as BodyInit })
 }
 
+/** upload a card thumbnail (base64 PNG, no data: prefix) for the Home doc grid */
+export async function putThumb(id: string, pngBase64: string): Promise<void> {
+  await authFetch(`/documents/${id}/thumb`, {
+    method: 'PUT',
+    body: b64ToBytes(pngBase64) as BodyInit,
+  }).catch(() => {})
+}
+
 async function createDocument(title: string, bytes: Uint8Array): Promise<string> {
   const r = await authFetch(`/documents?title=${encodeURIComponent(title)}`, {
     method: 'POST',

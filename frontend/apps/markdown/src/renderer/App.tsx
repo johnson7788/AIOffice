@@ -22,8 +22,8 @@ import { MindmapView } from './mindmap/MindmapView'
 import { exportDocxBytes } from './export/docxExport'
 import { buildPrintHtml } from './export/printHtml'
 import { resolveImageSrc } from './editor/localImage'
-import { imageSearch } from './web-adapter'
-import { ImageGallery } from '@genoffice/ui'
+import { imageSearch, putThumb } from './web-adapter'
+import { ImageGallery, domToThumbPng } from '@genoffice/ui'
 import type { ExportFormat, SaveMode } from '../shared/ipc'
 
 type LoadStatus = 'loading' | 'ready' | 'error'
@@ -231,6 +231,13 @@ export default function App() {
       const result = await window.markdownApi.save({ text, mode, suggestedName })
       if (result.ok && 'path' in result) {
         setFilePath(result.path)
+        // Home card thumbnail from the rendered editor DOM (fire-and-forget)
+        const dom = current.view.dom as HTMLElement
+        void domToThumbPng(dom)
+          .then((png) => {
+            if (png) void putThumb(result.path, png)
+          })
+          .catch(() => {})
         const unchanged =
           editorRef.current?.state.doc === docAtSave && envelopeRef.current.frontmatter === fmAtSave
         if (unchanged) {

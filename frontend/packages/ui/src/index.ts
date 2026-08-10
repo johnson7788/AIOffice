@@ -1,4 +1,5 @@
 export { AiComposer } from './AiComposer'
+export { domToThumbPng } from './dom-thumb'
 export { AiTypingIndicator } from './AiTypingIndicator'
 export { IconSend, IconStop, type IconProps } from './icons'
 export { ImageGallery, type GalleryImage, type ImageGalleryProps } from './ImageGallery'

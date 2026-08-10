@@ -42,6 +42,12 @@ function openDoc(doc: DocMeta, onOpen: () => void) {
     location.href = u.toString()
     return
   }
+  if (/\.pdf$/i.test(doc.title)) {
+    const u = new URL(appUrl('pdf')) // appUrl already carries ?tok= in dev
+    u.searchParams.set('doc', doc.id) // pdf app consumes ?doc=
+    location.href = u.toString()
+    return
+  }
   const cross =
     /\.pptx$/i.test(doc.title) ? 'slides' : /\.(xlsx|xls|csv)$/i.test(doc.title) ? 'sheets' : null
   if (cross) {
@@ -81,6 +87,14 @@ const BADGE: Record<Kind | 'other', { label: string; cls: string }> = {
   sheets: { label: 'X', cls: 'k-sheets' },
   mindmap: { label: '图', cls: 'k-mind' },
   other: { label: '·', cls: 'k-other' },
+}
+
+const KIND_LABEL: Record<Kind | 'other', string> = {
+  docs: '文字文档',
+  slides: '演示文稿',
+  sheets: '表格',
+  mindmap: '思维导图',
+  other: '其他文档',
 }
 
 function docKind(doc: DocMeta): Kind | 'other' {
@@ -178,6 +192,8 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
   const [trash, setTrash] = useState<DocMeta[]>([])
   // move-to-project modal: the doc being moved (null = closed)
   const [moveFor, setMoveFor] = useState<DocMeta | null>(null)
+  // right-side preview panel: the selected recent card (null = hidden)
+  const [selected, setSelected] = useState<DocMeta | null>(null)
 
   useEffect(() => {
     void listDocuments().then(setRecent)
@@ -412,10 +428,11 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
                 return (
                   <div
                     key={d.id}
-                    className="home-doc"
+                    className={`home-doc${selected?.id === d.id ? ' selected' : ''}`}
                     role="button"
                     tabIndex={0}
-                    onClick={() => openDoc(d, onOpenEditor)}
+                    onClick={() => (filter === 'trash' ? undefined : setSelected(d))}
+                    onDoubleClick={() => openDoc(d, onOpenEditor)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') openDoc(d, onOpenEditor)
                     }}
@@ -473,6 +490,27 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
           )}
         </section>
       </main>
+
+      {selected && (
+        <aside className="home-preview">
+          <button className="home-preview-close" onClick={() => setSelected(null)}>✕</button>
+          <div className="home-preview-thumb">
+            <DocThumb doc={selected} />
+          </div>
+          <div className="home-preview-title">{selected.title}</div>
+          <dl className="home-preview-meta">
+            <div><dt>类型</dt><dd>{KIND_LABEL[docKind(selected)]}</dd></div>
+            <div><dt>更新</dt><dd>{new Date(selected.updated).toLocaleString()}</dd></div>
+          </dl>
+          <div className="home-preview-actions">
+            <button className="home-preview-open" onClick={() => openDoc(selected, onOpenEditor)}>
+              打开
+            </button>
+            <button onClick={() => void downloadDocument(selected.id, selected.title)}>下载</button>
+            <button onClick={() => void openShare(selected)}>分享</button>
+          </div>
+        </aside>
+      )}
 
       {versionsFor && (
         <div className="home-modal-backdrop" onClick={() => setVersionsFor(null)}>

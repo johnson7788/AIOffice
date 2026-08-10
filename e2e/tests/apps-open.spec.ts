@@ -42,6 +42,17 @@ test('open the seeded PPT in the slides editor', async ({ page }) => {
   await expect.poll(() => page.locator('.slide-list .thumb').count()).toBeGreaterThanOrEqual(2)
 })
 
+test('open the seeded PDF in the pdf editor', async ({ page }) => {
+  await registerViaUi(page)
+  await page.locator('.home-recent-item', { hasText: 'PDF' }).click()
+  await page.waitForURL(/\/pdf\//, { timeout: 15_000 })
+
+  // pdf.js parsed the 2-page seed: sidebar thumbnails rendered
+  await expect(page.locator('.pdf-thumbs .pdf-thumb-box')).toHaveCount(2, {
+    timeout: OPEN_TIMEOUT,
+  })
+})
+
 test('open the seeded Excel in the sheets editor', async ({ page }) => {
   await registerViaUi(page)
   await page.locator('.home-recent-item', { hasText: '表格示例' }).click()

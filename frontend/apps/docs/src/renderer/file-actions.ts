@@ -60,6 +60,17 @@ import { checkMissingFonts, collectDocFonts } from './font-check'
 import { defaultEastAsiaFontFor } from './font-list'
 import { hasPrintableHeaderFooter } from './pagination'
 import { showToast } from './components/toast-bus'
+import { putThumb } from './web-adapter'
+import { domToThumbPng } from '@genoffice/ui'
+
+/** Render the first page to a small PNG and upload it as the Home card
+ *  thumbnail. Fire-and-forget: never blocks or fails the save. */
+async function uploadDocThumb(docId: string): Promise<void> {
+  const page = document.querySelector<HTMLElement>('.doc-page, .editor-scroll .ProseMirror')
+  if (!page) return
+  const png = await domToThumbPng(page)
+  if (png) await putThumb(docId, png)
+}
 
 /** The App state the file actions need; built fresh per call. */
 export interface FileActionContext {
@@ -695,6 +706,7 @@ async function saveOnce(ctx: FileActionContext, saveAs: boolean, auto: boolean):
       auto ? t('appAutoSavedAt', { time: new Date().toLocaleTimeString() }) : t('appSaved'),
     )
     if (!auto) showToast(t('appSaved'))
+    if (savedPath) void uploadDocThumb(savedPath).catch(() => {})
     return true
   } catch (err) {
     ctx.setStatus(t('appSaveFailed', { error: String(err) }))
