@@ -46,6 +46,11 @@ def _mime_from_name(name: str) -> str | None:
     return _EXT_MIME.get(ext)
 
 
+def _doc_type_from_name(name: str) -> str | None:
+    ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+    return ext if ext in ("docx", "pptx", "xlsx", "pdf") else None
+
+
 def _blob_key(org_id: str, asset_id: str) -> str:
     return f"org/{org_id}/asset/{asset_id}"
 
@@ -171,6 +176,23 @@ def _extract_images(doc_type: str, blob: bytes) -> list[tuple[str, str, bytes]]:
     return out
 
 
+async def _persist_extracted(
+    user: User, images: list[tuple[str, str, bytes]], source: str, session: AsyncSession
+) -> list[AssetOut]:
+    await _check_storage(user, session, sum(len(d) for _, _, d in images))
+    created: list[Asset] = []
+    for name, mime, data in images:
+        a = _add_asset(user, name, mime, data, source, session)
+        await session.flush()
+        storage.put_blob(_blob_key(user.org_id, a.id), data)
+        created.append(a)
+    await session.commit()
+    return [
+        AssetOut(id=a.id, name=a.name, mime=a.mime, size=a.size, source=a.source, created=a.created)
+        for a in created
+    ]
+
+
 @router.post("/extract-from/{doc_id}", response_model=list[AssetOut])
 async def extract_from(
     doc_id: str,
@@ -188,15 +210,28 @@ async def extract_from(
         images = _extract_images(doc.type, storage.get_blob(doc.blob_key))
     except Exception as e:  # noqa: BLE001 — corrupt/unsupported file
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"cannot extract: {e}")
-    await _check_storage(user, session, sum(len(d) for _, _, d in images))
-    created: list[Asset] = []
-    for name, mime, data in images:
-        a = _add_asset(user, name, mime, data, f"doc:{doc_id}", session)
-        await session.flush()
-        storage.put_blob(_blob_key(user.org_id, a.id), data)
-        created.append(a)
-    await session.commit()
-    return [
-        AssetOut(id=a.id, name=a.name, mime=a.mime, size=a.size, source=a.source, created=a.created)
-        for a in created
-    ]
+    return await _persist_extracted(user, images, f"doc:{doc_id}", session)
+
+
+@router.post("/extract", response_model=list[AssetOut])
+async def extract_upload(
+    request: Request,
+    name: str,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> list[AssetOut]:
+    """Extract images from a document the user uploads here (docx/pptx/xlsx/pdf),
+    without persisting the document itself — only the extracted images are kept."""
+    doc_type = _doc_type_from_name(name)
+    if not doc_type:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "upload a docx/pptx/xlsx/pdf file")
+    data = await request.body()
+    if not data:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "empty body")
+    if len(data) > MAX_BLOB_MB * 1024 * 1024:
+        raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "file too large")
+    try:
+        images = _extract_images(doc_type, data)
+    except Exception as e:  # noqa: BLE001 — corrupt/unsupported file
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"cannot extract: {e}")
+    return await _persist_extracted(user, images, f"file:{name}", session)

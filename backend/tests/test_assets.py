@@ -127,6 +127,34 @@ def test_extract_from_pdf():
         assert c.get(f"/gallery/{created[0]['id']}/blob", headers=h).status_code == 200
 
 
+def test_extract_upload_office():
+    with TestClient(main.app) as c:
+        h = _auth(c, "gu@x.com")
+        created = c.post("/gallery/extract", params={"name": "paper.docx"},
+                         content=_docx_with_media(2), headers=h).json()
+        assert len(created) == 2  # 2 images, the .wav skipped
+        assert all(x["source"] == "file:paper.docx" and x["mime"] == "image/png" for x in created)
+        # the uploaded document is NOT persisted — only images land in the gallery
+        assert all(d["title"] != "paper.docx" for d in c.get("/documents", headers=h).json())
+        assert len(c.get("/gallery", headers=h).json()) == 2
+
+
+def test_extract_upload_pdf():
+    with TestClient(main.app) as c:
+        h = _auth(c, "gup@x.com")
+        created = c.post("/gallery/extract", params={"name": "scan.pdf"},
+                         content=_pdf_with_image(), headers=h).json()
+        assert len(created) == 1 and created[0]["source"] == "file:scan.pdf"
+        assert c.get(f"/gallery/{created[0]['id']}/blob", headers=h).status_code == 200
+
+
+def test_extract_upload_rejects_non_document():
+    with TestClient(main.app) as c:
+        h = _auth(c, "gun@x.com")
+        r = c.post("/gallery/extract", params={"name": "notes.txt"}, content=b"hi", headers=h)
+        assert r.status_code == 400
+
+
 def test_extract_cross_tenant_404():
     with TestClient(main.app) as c:
         ha = _auth(c, "gxa@x.com")

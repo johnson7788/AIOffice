@@ -527,7 +527,7 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
           >
             <ImageGallery
               search={(q, max) => window.desktop.imageSearch(q, max)}
-              gallery={{ docId: null }} // Home has no open doc → 从文档提取 disabled; upload/browse/delete work
+              gallery={{ docId: null }} // browse-only; 上传文献提取 works without an open doc
               onPick={() => {}} // browse-only: no editor to insert into
               onClose={() => setShowGallery(false)}
             />

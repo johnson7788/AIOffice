@@ -19,7 +19,8 @@ export interface ImageGalleryProps {
   initialQuery?: string
   placeholder?: string
   /** Enables the private "我的图库" tab (upload / extract-from-doc / delete). When
-   * present it becomes the default tab. docId enables the 从文档提取 button. */
+   * present it becomes the default tab. docId enables "从当前文档提取"; the
+   * "上传文献提取" button (upload a doc → extract its images) is always available. */
   gallery?: { docId?: string | null }
 }
 
@@ -81,6 +82,7 @@ export function ImageGallery({ search, onPick, onClose, initialQuery = '', place
   const [mineMsg, setMineMsg] = useState('')
   const [mineQuery, setMineQuery] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
+  const docRef = useRef<HTMLInputElement>(null)
 
   async function loadMine(q = '') {
     setMineLoading(true)
@@ -135,6 +137,29 @@ export function ImageGallery({ search, onPick, onClose, initialQuery = '', place
       if (!r.ok) throw new Error()
       const created = (await r.json()) as unknown[]
       setMineMsg(created.length ? `提取了 ${created.length} 张图片` : '文档中没有图片')
+      await loadMine(mineQuery)
+    } catch {
+      setMineMsg('提取失败')
+      setMineLoading(false)
+    }
+  }
+
+  // Upload a document (docx/pptx/xlsx/pdf) → server extracts its images; the
+  // document itself is not saved, only the extracted images land in the gallery.
+  async function doExtractUpload(files: FileList | null) {
+    const f = files?.[0]
+    if (!f) return
+    setMineLoading(true)
+    setMineMsg('')
+    try {
+      const r = await fetch(`/gallery/extract?name=${encodeURIComponent(f.name)}`, {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/octet-stream' },
+        body: f,
+      })
+      if (!r.ok) throw new Error()
+      const created = (await r.json()) as unknown[]
+      setMineMsg(created.length ? `提取了 ${created.length} 张图片` : '文献中没有图片')
       await loadMine(mineQuery)
     } catch {
       setMineMsg('提取失败')
@@ -216,16 +241,26 @@ export function ImageGallery({ search, onPick, onClose, initialQuery = '', place
               }}
             />
             <button style={S.btn} onClick={() => fileRef.current?.click()} disabled={mineLoading}>
-              上传
+              上传图片
             </button>
             <button
-              style={gallery?.docId ? S.btn : S.btnDisabled}
-              onClick={() => void doExtract()}
-              disabled={!gallery?.docId || mineLoading}
-              title={gallery?.docId ? '从当前文档提取图片' : '打开一个文档后可提取'}
+              style={S.btn}
+              onClick={() => docRef.current?.click()}
+              disabled={mineLoading}
+              title="上传文献（Word/PPT/Excel/PDF）提取其中的图片"
             >
-              从文档提取
+              上传文献提取
             </button>
+            {gallery?.docId && (
+              <button
+                style={S.btn}
+                onClick={() => void doExtract()}
+                disabled={mineLoading}
+                title="从当前打开的文档提取图片"
+              >
+                从当前文档提取
+              </button>
+            )}
             <input
               ref={fileRef}
               type="file"
@@ -233,6 +268,13 @@ export function ImageGallery({ search, onPick, onClose, initialQuery = '', place
               multiple
               style={{ display: 'none' }}
               onChange={(e) => void doUpload(e.target.files)}
+            />
+            <input
+              ref={docRef}
+              type="file"
+              accept=".docx,.pptx,.xlsx,.pdf"
+              style={{ display: 'none' }}
+              onChange={(e) => void doExtractUpload(e.target.files)}
             />
           </div>
           {mineMsg && <div style={S.hint}>{mineLoading ? '处理中…' : mineMsg}</div>}
