@@ -127,6 +127,50 @@ def test_stream_truncated_tool_call(monkeypatch):
     assert out[-1]["stopReason"] == "max_tokens"
 
 
+def test_stream_uses_vision_model_when_images_present(monkeypatch):
+    seen: dict = {}
+
+    async def fake_acompletion(**kwargs):
+        seen["model"] = kwargs["model"]
+        async def agen():
+            yield _chunk(text="see", finish="stop")
+        return agen()
+
+    monkeypatch.setenv("MODEL_PROVIDER", "deepseek")
+    monkeypatch.setenv("MODEL_NAME", "deepseek-chat")
+    monkeypatch.setenv("VISION_MODEL", "openai/qwen-vl-max")
+    monkeypatch.setenv("VISION_API_KEY", "vk")
+    monkeypatch.setenv("VISION_API_BASE", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+    monkeypatch.setattr(llm.litellm, "acompletion", fake_acompletion)
+    drain(
+        stream_turn(
+            "r", "s", [{"role": "user", "text": "see", "images": [{"base64": "AAA", "mime": "image/png"}]}], [], lambda: False
+        )
+    )
+    assert seen["model"] == "openai/qwen-vl-max"
+
+
+def test_stream_uses_main_model_without_vision(monkeypatch):
+    seen: dict = {}
+
+    async def fake_acompletion(**kwargs):
+        seen["model"] = kwargs["model"]
+        async def agen():
+            yield _chunk(text="see", finish="stop")
+        return agen()
+
+    monkeypatch.setenv("MODEL_PROVIDER", "deepseek")
+    monkeypatch.setenv("MODEL_NAME", "deepseek-chat")
+    monkeypatch.delenv("VISION_MODEL", raising=False)
+    monkeypatch.setattr(llm.litellm, "acompletion", fake_acompletion)
+    drain(
+        stream_turn(
+            "r", "s", [{"role": "user", "text": "see", "images": [{"base64": "AAA", "mime": "image/png"}]}], [], lambda: False
+        )
+    )
+    assert seen["model"] == "deepseek/deepseek-chat"
+
+
 def test_stream_error_chunk_on_exception(monkeypatch):
     async def boom(**kwargs):
         raise RuntimeError("provider down")

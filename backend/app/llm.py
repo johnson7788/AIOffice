@@ -13,7 +13,12 @@ from typing import Any
 
 import litellm
 
-from .config import resolve_model
+from .config import resolve_model, resolve_vision_model
+
+
+def _has_images(messages: list[dict]) -> bool:
+    """Any user turn carries image data -> needs a vision-capable model."""
+    return any(m.get("images") for m in messages if m.get("role") == "user")
 
 
 def _to_litellm_messages(system: str, messages: list[dict]) -> list[dict]:
@@ -76,6 +81,10 @@ async def stream_turn(
 ) -> AsyncIterator[dict]:
     """Yield IpcStreamChunk dicts for one model turn. `is_cancelled()` -> bool."""
     model, kwargs = resolve_model()
+    if _has_images(messages):
+        vision = resolve_vision_model()
+        if vision:  # dedicated vision model configured -> route image turns there
+            model, kwargs = vision
     lm_messages = _to_litellm_messages(system, messages)
     call_kwargs: dict[str, Any] = {"model": model, "messages": lm_messages, "stream": True, **kwargs}
     if tools:
