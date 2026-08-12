@@ -1,5 +1,6 @@
 import { ImageGallery, SkillManager } from '@genoffice/ui'
 import { useEffect, useMemo, useState } from 'react'
+import { BrandMark } from './BrandMark'
 import {
   type DocMeta,
   type ProjectMeta,
@@ -322,7 +323,10 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
   return (
     <div className="home">
       <aside className="home-side">
-        <div className="home-logo">AI Office</div>
+        <div className="home-logo">
+          <BrandMark size={26} />
+          <span className="brand-word">AI Office</span>
+        </div>
         <div className="home-new-row">
           <button className="home-new" onClick={() => create('docs')}>+ 文字</button>
           <button className="home-new" onClick={() => create('slides')}>+ 演示</button>
@@ -368,9 +372,17 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
           </>
         )}
         <div className="home-side-spacer" />
-        <button className="home-logout" onClick={() => { clearToken(); location.reload() }}>
-          退出登录
-        </button>
+        <div className="home-account">
+          <div className="home-avatar">AI</div>
+          <span className="home-account-name">我的工作台</span>
+          <button
+            className="home-logout"
+            title="退出登录"
+            onClick={() => { clearToken(); location.reload() }}
+          >
+            退出
+          </button>
+        </div>
       </aside>
 
       <main className="home-main">
@@ -384,7 +396,10 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
         </div>
 
         <section className="home-hero">
-          <h1 className="home-heading">想创建点什么？</h1>
+          <h1 className="home-heading">
+            构建高效办公，从 AI 开始 <span className="home-wave">👋</span>
+          </h1>
+          <p className="home-subheading">智能文档生成 · 高效内容创作 · 让工作更简单</p>
           <div className="home-kind">
             {KINDS.map((k) => (
               <button
@@ -422,7 +437,7 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
               }}
             />
             <button className="home-send" onClick={send} disabled={!prompt.trim()}>
-              生成 →
+              生成内容
             </button>
           </div>
           <div className="home-hint">Cmd/Ctrl + Enter 发送 · 点快捷卡片直接生成</div>
