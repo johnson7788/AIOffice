@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, ReactElement } from 'react'
-import { AgentLoop } from '@genoffice/agent-core'
+import { AgentLoop, composeSkills, createSkillhubSkill } from '@genoffice/agent-core'
 import type { AiSettings } from '@genoffice/ai-provider'
-import { AiComposer, AiTypingIndicator } from '@genoffice/ui'
+import { AiComposer, AiTypingIndicator, createSkillApi } from '@genoffice/ui'
 import { aiLangDirective, t as tGlobal, useI18n } from '../i18n/locale'
 import { Markdown } from '@genoffice/ui'
 import sendEnterOn from '../assets/send-enter-on.png'
@@ -105,7 +105,7 @@ export function AiPanel({
     }
     loopRef.current = new AgentLoop({
       transport: createElectronTransport(() => settingsRef.current!),
-      skill: createPdfSkill(deps),
+      skill: composeSkills('pdf+skills', '', [createPdfSkill(deps), createSkillhubSkill(createSkillApi())]),
       systemSuffix: () => aiLangDirective(langRef.current),
       events: {
         onText: (text) => {

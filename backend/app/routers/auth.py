@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
 from ..models import Organization, User
-from ..seed import seed_org_documents
+from ..seed import seed_org_documents, seed_org_skills
 from ..security import create_token, get_current_user, hash_password, verify_password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -48,6 +48,7 @@ async def register(body: RegisterIn, session: AsyncSession = Depends(get_session
     session.add(user)
     await session.flush()
     await seed_org_documents(session, org, user)
+    await seed_org_skills(session, org)
     await session.commit()
     return TokenOut(token=create_token(user.id, org.id), user_id=user.id, org_id=org.id)
 

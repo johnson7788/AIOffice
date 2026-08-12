@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react'
 import {
   AgentLoop,
   composeSkills,
+  createSkillhubSkill,
   IPC_STREAM_SILENCE_TIMEOUT_MS,
   type AgentImage,
   type ToolDisplay,
@@ -22,7 +23,7 @@ import { createElectronTransport } from './transport'
 import { renderSlidesToPngBase64 } from '../export-render'
 import { isQcEnabled, mergeQcPages, qcSlidePage, QC_MAX_PAGES } from './slide-qc'
 import { useI18n, t as tGlobal, aiLangDirective, type TFunc } from '../i18n/locale'
-import { Markdown } from '@genoffice/ui'
+import { Markdown, createSkillApi } from '@genoffice/ui'
 import { AiOfficeMark } from '../components/icons'
 import sendEnterOn from '../assets/send-enter-on.png'
 import sendEnterOff from '../assets/send-enter-off.png'
@@ -1075,6 +1076,7 @@ export function AiPanel({
           () => attachmentsRef.current,
           (path) => readAttachmentPathsRef.current.add(path),
         ),
+        createSkillhubSkill(createSkillApi()),
       ]),
       // Page-by-page deck generation needs more tool rounds
       maxTurns: 24,

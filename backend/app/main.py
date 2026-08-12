@@ -18,7 +18,7 @@ from .db import init_db
 from .llm import stream_turn
 from .locks import router as locks_router
 from .ratelimit import rate_limit
-from .routers import assets, auth, documents, projects, sharing, sheets
+from .routers import assets, auth, documents, projects, sharing, sheets, skills
 from .search import image_search as do_image_search
 from .search import web_search as do_web_search
 
@@ -49,6 +49,7 @@ app.include_router(sharing.owner_router)
 app.include_router(sharing.public_router)
 app.include_router(sheets.router)
 app.include_router(assets.router)
+app.include_router(skills.router)
 
 # requestId -> cancel flag; set by /ai/cancel, polled by the stream generator
 _cancelled: set[str] = set()

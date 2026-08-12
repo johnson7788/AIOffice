@@ -30,6 +30,7 @@ MAX_BLOB_MB = int(os.environ.get("MAX_BLOB_MB", "50"))
 # per-org quota (free plan). 0 disables the check.
 MAX_DOCS_PER_ORG = int(os.environ.get("MAX_DOCS_PER_ORG", "500"))
 MAX_STORAGE_MB_PER_ORG = int(os.environ.get("MAX_STORAGE_MB_PER_ORG", "2048"))
+MAX_SKILLS_PER_ORG = int(os.environ.get("MAX_SKILLS_PER_ORG", "50"))  # 0 disables
 
 # single-writer lock TTL (seconds); client renews before it lapses.
 LOCK_TTL_SEC = int(os.environ.get("LOCK_TTL_SEC", "120"))

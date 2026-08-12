@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, ReactElement, ReactNode } from 'react'
-import { AgentLoop, composeSkills } from '@genoffice/agent-core'
+import { AgentLoop, composeSkills, createSkillhubSkill } from '@genoffice/agent-core'
 import type { AiSettings } from '@genoffice/ai-provider'
-import { AiComposer, AiTypingIndicator, Markdown } from '@genoffice/ui'
+import { AiComposer, AiTypingIndicator, Markdown, createSkillApi } from '@genoffice/ui'
 import type { Editor } from '@tiptap/core'
 import { aiLangDirective, t as tGlobal, useI18n } from '../i18n/locale'
 import sendEnterOn from '../assets/send-enter-on.png'
@@ -155,6 +155,7 @@ export function AiPanel({
       skill: composeSkills('markdown+search', '', [
         createMarkdownSkill(() => depsRef.current.getEditor()),
         createSearchSkill(),
+        createSkillhubSkill(createSkillApi()),
       ]),
       captureSnapshot: () => depsRef.current.getSnapshot(),
       systemSuffix: () => aiLangDirective(langRef.current),

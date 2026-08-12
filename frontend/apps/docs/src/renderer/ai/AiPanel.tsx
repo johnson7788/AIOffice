@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/core'
 import type { Block } from '@genoffice/docx-engine'
-import { AgentLoop, composeSkills, type AgentImage } from '@genoffice/agent-core'
+import { AgentLoop, composeSkills, createSkillhubSkill, type AgentImage } from '@genoffice/agent-core'
 import type { AiSettings, AttachmentAddResult, AttachmentMeta } from '../../shared/ipc'
 import { ATTACHMENT_IMAGE_EXTS } from '../../shared/ipc'
 import type { PmNode } from '../editor/convert'
@@ -13,7 +13,7 @@ import { DOCS_AGENT_MAX_TURNS, DOCS_CONTINUE_INSTRUCTION } from './continuation'
 import { createFilesSkill } from './files-skill'
 import { createElectronTransport } from './transport'
 import { useI18n, t as tModule, aiLangDirective, type StringKey } from '../i18n/locale'
-import { Markdown } from '@genoffice/ui'
+import { Markdown, createSkillApi } from '@genoffice/ui'
 import { AiComposer, AiTypingIndicator } from '@genoffice/ui'
 import { AiOfficeMark } from '../components/icons'
 import sendEnterOn from '../assets/send-enter-on.png'
@@ -474,6 +474,7 @@ export function AiPanel({
           () => (trackChangesRef.current ? { author: AI_REVISION_AUTHOR } : undefined),
         ),
         createFilesSkill(() => attachmentsRef.current),
+        createSkillhubSkill(createSkillApi()),
       ]),
       captureSnapshot: () => editorRef.current.getJSON() as PmNode,
       events: {

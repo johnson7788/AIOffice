@@ -23,6 +23,7 @@ export default defineConfig({
       '/documents': { target: BACKEND, changeOrigin: true },
       '/projects': { target: BACKEND, changeOrigin: true },
       '/gallery': { target: BACKEND, changeOrigin: true },
+      '/skills': { target: BACKEND, changeOrigin: true },
       '/files': { target: BACKEND, changeOrigin: true },
     },
   },

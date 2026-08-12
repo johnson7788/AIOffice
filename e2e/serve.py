@@ -18,7 +18,7 @@ PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8080
 BACKEND = os.environ.get("BACKEND", "http://127.0.0.1:8585")
 ROOT = os.environ.get("DIST_ROOT", "/tmp/aioffice-web/html")
 
-API_PREFIXES = ("/ai", "/auth", "/documents", "/projects", "/gallery", "/files", "/share", "/healthz")
+API_PREFIXES = ("/ai", "/auth", "/documents", "/projects", "/gallery", "/skills", "/files", "/share", "/healthz")
 SPA_APPS = ("slides", "pdf", "markdown", "sheets")  # served under /<app>/; docs is served at /
 # The sheets SPA lives at /sheets/ but the xlsx sidecar API also hangs off
 # /sheets/* — mirror nginx.conf: only the fixed endpoint set is API. ponytail:

@@ -112,6 +112,25 @@ class Asset(Base):
     created: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
+class Skill(Base):
+    """An installed extension skill (Anthropic Agent Skills format: a zip with a
+    SKILL.md). Org-scoped; blob (the zip) at org/{org}/skill/{id}. Only enabled
+    skills are advertised to the agent. Separate table → create_all-safe (no
+    Alembic). (org_id, name) is unique per tenant."""
+
+    __tablename__ = "skills"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), index=True)
+    name: Mapped[str] = mapped_column(String(200), index=True)
+    description: Mapped[str] = mapped_column(Text, default="")
+    version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    source: Mapped[str] = mapped_column(String(128), default="upload")  # upload | url:<host>
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    size: Mapped[int] = mapped_column(Integer, default=0)
+    created: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+
 class Project(Base):
     __tablename__ = "projects"
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)

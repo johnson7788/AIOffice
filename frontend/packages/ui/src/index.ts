@@ -3,6 +3,7 @@ export { domToThumbPng } from './dom-thumb'
 export { AiTypingIndicator } from './AiTypingIndicator'
 export { IconSend, IconStop, type IconProps } from './icons'
 export { ImageGallery, type GalleryImage, type ImageGalleryProps } from './ImageGallery'
+export { SkillManager, createSkillApi, type SkillItem, type SkillManagerProps } from './SkillManager'
 export { Markdown } from './Markdown'
 export {
   WORDART_PRESETS,

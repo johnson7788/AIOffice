@@ -1,4 +1,4 @@
-import { ImageGallery } from '@genoffice/ui'
+import { ImageGallery, SkillManager } from '@genoffice/ui'
 import { useEffect, useMemo, useState } from 'react'
 import {
   type DocMeta,
@@ -197,6 +197,7 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
   const [selected, setSelected] = useState<DocMeta | null>(null)
   // standalone 我的图库 overlay (browse all uploaded / extracted images)
   const [showGallery, setShowGallery] = useState(false)
+  const [showSkills, setShowSkills] = useState(false)
 
   useEffect(() => {
     void listDocuments().then(setRecent)
@@ -341,6 +342,9 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
           ))}
           <button className="home-nav-item" onClick={() => setShowGallery(true)}>
             <span>我的图库</span>
+          </button>
+          <button className="home-nav-item" onClick={() => setShowSkills(true)}>
+            <span>技能中心</span>
           </button>
         </nav>
         {projects.length > 0 && (
@@ -531,6 +535,18 @@ export function Home({ onOpenEditor }: { onOpenEditor: () => void }) {
               onPick={() => {}} // browse-only: no editor to insert into
               onClose={() => setShowGallery(false)}
             />
+          </div>
+        </div>
+      )}
+
+      {showSkills && (
+        <div className="home-modal-backdrop" onClick={() => setShowSkills(false)}>
+          <div
+            className="home-modal"
+            style={{ width: 'min(860px, 92vw)', height: '80vh', padding: 0 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <SkillManager onClose={() => setShowSkills(false)} />
           </div>
         </div>
       )}

@@ -1,4 +1,4 @@
-import { ImageGallery } from '@genoffice/ui'
+import { ImageGallery, createSkillApi } from '@genoffice/ui'
 import { getCurrentDocId, imageSearch } from './web-adapter'
 import {
   absRangeRef,
@@ -104,6 +104,7 @@ import {
   AgentLoop,
   COMPLETED_VIA_TOOLS_TEXT,
   composeSkills,
+  createSkillhubSkill,
   type AgentImage,
 } from '@genoffice/agent-core'
 import type { AiSettings } from '@genoffice/ai-provider'
@@ -801,6 +802,7 @@ export function App(): React.JSX.Element {
         createWorkbookSkill(sheetsSkillDeps()),
         createFilesSkill(() => attachmentsRef.current),
         createSearchSkill(),
+        createSkillhubSkill(createSkillApi()),
       ]),
       // guide loading adds a tool round; the default 8 cuts off multi-step work
       maxTurns: 24,
