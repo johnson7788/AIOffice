@@ -120,4 +120,7 @@ cp .env.example .env && ./start.sh
 
 ## License
 
+如有任何问题，请联系我!
+![weichat.png](docs/weichat.png)
+
 [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0)。项目构建时参考了 genoffice 桌面版（Apache-2.0）。
