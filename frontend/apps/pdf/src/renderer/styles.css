@@ -954,6 +954,37 @@ button {
   outline: 1.5px solid #f08c00;
 }
 
+/* ── Read-only "locate in PDF" highlights (AI citation click) ── */
+
+.pdf-locate-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.pdf-locate-hit {
+  position: absolute;
+  background: rgb(59 130 246 / 28%);
+  border-radius: 2px;
+  mix-blend-mode: multiply;
+  animation: pdf-locate-flash 1.2s ease-out 1;
+}
+
+.pdf-locate-hit-cur {
+  background: rgb(59 130 246 / 45%);
+  outline: 1.5px solid #2b66ff;
+}
+
+@keyframes pdf-locate-flash {
+  0% {
+    background: rgb(59 130 246 / 70%);
+  }
+  100% {
+    background: rgb(59 130 246 / 28%);
+  }
+}
+
 /* ── Drawing annotation layer ── */
 
 .pdf-draw-layer {
@@ -2043,7 +2074,26 @@ button {
   color: #606366;
   font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 14px;
-} /* Thinking indicator: shimmer label above two grow/shrink dots */
+}
+
+/* locatable citation (AI answer): clickable inline chip pointing at a verbatim passage */
+.ai-cite {
+  all: unset;
+  cursor: pointer;
+  border-radius: 5px;
+  padding: 0 5px;
+  margin: 0 1px;
+  background: rgb(59 130 246 / 13%);
+  color: #2563eb;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.ai-cite:hover {
+  background: rgb(59 130 246 / 22%);
+}
+
+/* Thinking indicator: shimmer label above two grow/shrink dots */
 .ai-typing {
   display: flex;
   flex-direction: column;

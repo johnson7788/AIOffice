@@ -8,7 +8,9 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv()
+# override=True: repo-root .env is authoritative, so shell-exported variables
+# (which python-dotenv's default keeps) cannot shadow this app's own config.
+load_dotenv(override=True)
 
 # async SQLAlchemy URL; sqlite+aiosqlite for dev, postgresql+asyncpg for prod
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite+aiosqlite:///./aioffice.db")

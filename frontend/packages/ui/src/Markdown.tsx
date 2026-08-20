@@ -2,13 +2,15 @@ import { Fragment, type ReactNode } from 'react'
 
 /**
  * Minimal dependency-free markdown for chat bubbles: paragraphs, ul/ol,
- * headings, **bold**, *italic*, `inline code`. Tolerates
+ * headings, **bold**, *italic*, `inline code`, and [text](href) links. Tolerates
  * partial (streaming) input — anything unrecognized renders as plain text.
  */
 
-const INLINE_RE = /(`[^`\n]+`|\*\*[^*\n]+?\*\*|\*[^*\n]+?\*)/g
+const INLINE_RE = /(\[([^\]]+)\]\(([^)\s]+)\)|`[^`\n]+`|\*\*[^*\n]+?\*\*|\*[^*\n]+?\*)/g
 
-function renderInline(text: string): ReactNode[] {
+type RenderLink = (href: string, text: string) => ReactNode
+
+function renderInline(text: string, renderLink?: RenderLink): ReactNode[] {
   const out: ReactNode[] = []
   let last = 0
   let key = 0
@@ -16,9 +18,25 @@ function renderInline(text: string): ReactNode[] {
     const i = m.index ?? 0
     if (i > last) out.push(text.slice(last, i))
     const tok = m[0] ?? ''
-    if (tok.startsWith('`')) out.push(<code key={key++}>{tok.slice(1, -1)}</code>)
-    else if (tok.startsWith('**')) out.push(<strong key={key++}>{tok.slice(2, -2)}</strong>)
-    else out.push(<em key={key++}>{tok.slice(1, -1)}</em>)
+    if (tok.startsWith('[')) {
+      const linkText = m[2] ?? ''
+      const href = m[3] ?? ''
+      out.push(
+        renderLink ? (
+          <Fragment key={key++}>{renderLink(href, linkText)}</Fragment>
+        ) : (
+          <a key={key++} href={href} target="_blank" rel="noreferrer">
+            {linkText}
+          </a>
+        ),
+      )
+    } else if (tok.startsWith('`')) {
+      out.push(<code key={key++}>{tok.slice(1, -1)}</code>)
+    } else if (tok.startsWith('**')) {
+      out.push(<strong key={key++}>{tok.slice(2, -2)}</strong>)
+    } else {
+      out.push(<em key={key++}>{tok.slice(1, -1)}</em>)
+    }
     last = i + tok.length
   }
   if (last < text.length) out.push(text.slice(last))
@@ -80,19 +98,27 @@ function parseBlocks(text: string): MdBlock[] {
   return blocks
 }
 
-export function Markdown({ text }: { text: string }): React.JSX.Element {
+export function Markdown({
+  text,
+  renderLink,
+}: {
+  text: string
+  renderLink?: RenderLink
+}): React.JSX.Element {
   return (
     <div className="ai-md">
       {parseBlocks(text).map((b, i) => {
         if (b.kind === 'h') {
           return (
             <p key={i} className="ai-md-h">
-              {renderInline(b.text)}
+              {renderInline(b.text, renderLink)}
             </p>
           )
         }
         if (b.kind === 'ul' || b.kind === 'ol') {
-          const items = b.items.map((it, j) => <li key={j}>{renderInline(it)}</li>)
+          const items = b.items.map((it, j) => (
+            <li key={j}>{renderInline(it, renderLink)}</li>
+          ))
           return b.kind === 'ul' ? <ul key={i}>{items}</ul> : <ol key={i}>{items}</ol>
         }
         return (
@@ -100,7 +126,7 @@ export function Markdown({ text }: { text: string }): React.JSX.Element {
             {b.lines.map((ln, j) => (
               <Fragment key={j}>
                 {j > 0 && <br />}
-                {renderInline(ln)}
+                {renderInline(ln, renderLink)}
               </Fragment>
             ))}
           </p>

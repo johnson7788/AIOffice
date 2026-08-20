@@ -32,7 +32,7 @@ import type { SignatureData } from './SignatureDialog'
 import { StampDialog } from './StampDialog'
 import { buildStamps } from './stamps'
 import type { HeaderFooterConfig, WatermarkConfig } from './stamps'
-import { buildSearchIndex, searchInIndex } from './search'
+import { buildSearchIndex, locateInIndex, searchInIndex } from './search'
 import type { SearchIndex, SearchMatch } from './search'
 import { useI18n } from './i18n/locale'
 import { useAutosave } from './useAutosave'
@@ -776,6 +776,9 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchMatches, setSearchMatches] = useState<SearchMatch[]>([])
   const [searchCur, setSearchCur] = useState(0)
+  /** Read-only "locate in PDF" highlights from clicking an AI citation (never dirty/undo/save) */
+  const [locateMatches, setLocateMatches] = useState<SearchMatch[]>([])
+  const [locatePulse, setLocatePulse] = useState(0)
   const [printing, setPrinting] = useState(false)
   const [undoStack, setUndoStack] = useState<EditSnapshot[]>([])
   const [redoStack, setRedoStack] = useState<EditSnapshot[]>([])
@@ -867,6 +870,7 @@ export default function App() {
     setDeleteToast(false)
     setUndoStack([])
     setRedoStack([])
+    setLocateMatches([])
     void loaded.getOutline().then(
       (o) => setOutline(o && o.length > 0 ? (o as OutlineNode[]) : null),
       () => setOutline(null),
@@ -1137,6 +1141,25 @@ export default function App() {
     const n = activeMatches.length
     if (n === 0) return
     setSearchCur((searchCurClamped + dir + n) % n)
+  }
+
+  /** Clicked a cite in the AI answer: locate the verbatim passage and show a
+      read-only highlight (never enters markups/undo/dirty), scrolling to the first hit. */
+  const locateInPdf = async (quote: string) => {
+    const indexPromise = getSearchIndex()
+    if (!indexPromise) return
+    const index = await indexPromise
+    const matches = locateInIndex(index, quote)
+    if (matches.length === 0) return
+    setLocateMatches(matches)
+    setLocatePulse((p) => p + 1)
+
+    const first = matches[0]!
+    const visIdx = visList.indexOf(first.pageIndex)
+    const el = scrollRef.current
+    if (visIdx < 0 || !el) return
+    const box = pdfRectToCss(pageGeom(first.pageIndex), first.rects[0] ?? [0, 0, 0, 0], scale)
+    el.scrollTop = Math.max(0, pageTop(visIdx) + box.top - el.clientHeight * 0.35)
   }
 
   const openSearch = () => {
@@ -1810,6 +1833,7 @@ export default function App() {
         else if (drawTool) setDrawTool(null)
         else if (selected) setSelected(null)
         else if (searchOpen) closeSearch()
+        else if (locateMatches.length > 0) setLocateMatches([])
         return
       }
       if (inEditable) return
@@ -2287,7 +2311,7 @@ export default function App() {
               <AiOfficeMark size={22} />
             </button>
           )}
-          <AiPanel api={aiApi} onCollapse={() => setAiCollapsed(true)} />
+          <AiPanel api={aiApi} onCollapse={() => setAiCollapsed(true)} onLocate={locateInPdf} />
         </div>
         <div className="app-content">
           <div className="pdf-body">
@@ -2453,6 +2477,19 @@ export default function App() {
                                 )}
                               </div>
                             )}
+                            <div className="pdf-locate-layer">
+                              {locateMatches.flatMap((m, mi) =>
+                                m.pageIndex === origIdx
+                                  ? m.rects.map((r, ri) => (
+                                      <div
+                                        key={`${locatePulse}-${mi}-${ri}`}
+                                        className={`pdf-locate-hit${mi === 0 ? ' pdf-locate-hit-cur' : ''}`}
+                                        style={pdfRectToCss(geom, r, scale)}
+                                      />
+                                    ))
+                                  : [],
+                              )}
+                            </div>
                             <MarkupOverlay
                               markups={markups.filter((m) => m.pageIndex === origIdx)}
                               geom={geom}

@@ -47,9 +47,12 @@ type Phase = 'thinking' | 'replying' | 'working'
 export function AiPanel({
   api,
   onCollapse,
+  onLocate,
 }: {
   api: PdfAiDeps
   onCollapse: () => void
+  /** Clicked a verbatim citation in the answer: locate + highlight it in the PDF (read-only) */
+  onLocate: (quote: string) => void
 }): ReactElement {
   const { lang, t } = useI18n()
   const [chat, setChat] = useState<ChatEntry[]>([])
@@ -255,6 +258,27 @@ export function AiPanel({
   const typingLabel =
     phase === 'replying' ? t('aiReplying') : phase === 'working' ? t('aiWorking') : t('aiThinking')
 
+  // cite links ([verbatim text](cite:)) become clickable "locate in PDF" chips
+  const renderLink = (href: string, text: string): ReactElement => {
+    if (href === 'cite' || href === 'cite:') {
+      return (
+        <button
+          type="button"
+          className="ai-cite"
+          title={t('aiCiteLocate')}
+          onClick={() => onLocate(text)}
+        >
+          {text}
+        </button>
+      )
+    }
+    return (
+      <a href={href} target="_blank" rel="noreferrer">
+        {text}
+      </a>
+    )
+  }
+
   return (
     <aside
       ref={asideRef}
@@ -335,7 +359,7 @@ export function AiPanel({
               className={`ai-msg ai-msg-assistant${entry.isError ? ' ai-msg-error' : ''}`}
             >
               {hasTools && <ToolChipList tools={entry.tools!} />}
-              {entry.text && <Markdown text={entry.text} />}
+              {entry.text && <Markdown text={entry.text} renderLink={renderLink} />}
             </div>
           )
         })}

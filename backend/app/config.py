@@ -7,7 +7,10 @@ import os
 
 from dotenv import load_dotenv
 
-load_dotenv()
+# override=True: this app's repo-root .env is the authoritative LLM config and
+# must win over any ambient DEEPSEEK_API_KEY etc. exported in the user's shell
+# (e.g. a codex/other-tool key), otherwise .env edits are silently ignored.
+load_dotenv(override=True)
 
 # provider -> (model prefix, key env var, default api_base, base override env var)
 #  key env:   <PROVIDER>_API_KEY 必填（vllm/ollama 可填 EMPTY 等任意值）
